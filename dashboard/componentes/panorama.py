@@ -110,7 +110,7 @@ def _tarjeta_dron(ctx: Ctx, b: int) -> None:
         return
     d = dr.iloc[0]
     pulso = "pulse" if d["estado"] == "inspeccionando" else ""
-    html(f'<div class="card-hd" style="margin-bottom:12px">{ico_box("drone", V_DRON[d["estado"]], False, 20)}<div>'
+    html(f'<div class="card-hd" style="margin-bottom:16px;flex-wrap:nowrap">{ico_box("drone", V_DRON[d["estado"]], False, 20)}<div>'
          f'<div class="h3">Dron {esc(d["dron_id"])}</div><div class="sub">'
          f'{"Última posición conocida" if ctx.sin_red else "Cámara 360 · sensores de clima"}</div></div>'
          f'<div class="spacer"></div>{chip(LABEL["dron"][d["estado"]], C_DRON[d["estado"]], True, pulso)}</div>')
@@ -147,7 +147,7 @@ def _camas_a_vigilar(ctx: Ctx, b: int, riesgo) -> None:
     medios = rb[rb["nivel"] == "medio"].sort_values("prob_ia_7d", ascending=False) if len(rb) else rb
     rank = list(altos.itertuples()) + list(medios.itertuples())
     rank = rank[:ctx.cfg["dashboard"]["ui"]["top_camas"]]
-    html(f'<div style="margin-top:22px"><div class="h3">Camas a vigilar</div><div class="sub">'
+    html(f'<div style="margin:36px 0 8px"><div class="h3">Camas a vigilar</div><div class="sub">'
          f'{plural(len(altos), "cama", "camas")} en riesgo alto en el bloque</div></div>')
     if not rank:
         html('<div class="small muted" style="padding:8px 0">Sin camas en riesgo medio o alto.</div>')
@@ -167,7 +167,7 @@ def pantalla(ctx: Ctx) -> None:
     riesgo = db.riesgo_ultimo(ctx.corrida)
     dia = int(riesgo["dia"].iloc[0]) if len(riesgo) else None
     with st.container(key="finca"):
-        izq, der = st.columns([1, 0.36], gap="large")
+        izq, der = st.columns([1, 0.38], gap="large")
         with izq:
             clic = mapa3d(_datos_mapa(ctx, b, riesgo, dia), key="mapa3d")
             if clic and clic.get("t") != st.session_state.ult_click:

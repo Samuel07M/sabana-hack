@@ -27,7 +27,7 @@ def csv(ctx: Ctx) -> bytes:
 def _tabla(ctx: Ctx, lista) -> None:
     """Tabla de incidencias con filas que se pueden clicar."""
     sel = st.session_state.inc_sel
-    with st.container(height=min(540, 46 + 49 * len(lista)), key="tblwrap", border=False):
+    with st.container(height=min(540, 42 + 48 * len(lista)), key="tblwrap", border=False):
         html('<div class="trow th"><span>#</span><span>Ubicación</span><span>Pos.</span><span>Origen</span><span>Estado</span>'
              '<span>Conf.</span><span>Plantas</span><span>Creada</span></div>')
         for i in lista.to_dict("records"):

@@ -130,7 +130,7 @@ PROTOTIPO = """
 .pipe-i .n{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-weight:750;font-size:16px;position:relative;z-index:1;
   background:color-mix(in srgb,var(--c) 14%,var(--card));color:var(--c);border:1px solid color-mix(in srgb,var(--c) 30%,transparent)}
 .pipe-i .l{font-size:12px;color:var(--muted);font-weight:550}
-.trow{display:grid;grid-template-columns:44px minmax(140px,1.4fr) 56px 92px minmax(150px,1fr) 64px 78px 112px;gap:0;align-items:center;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;font-size:13px;min-width:760px}
+.trow{display:grid;grid-template-columns:48px minmax(130px,1.3fr) 50px 84px minmax(140px,1fr) 56px 72px 104px;gap:0;align-items:center;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;font-size:13px;min-width:700px}
 .trow>span{padding:11px 10px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .trow.th>span{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:650;padding:10px}
 .trow.sel{background:var(--accent-soft)}
@@ -151,7 +151,8 @@ PROTOTIPO = """
 
 # Streamlit: fondo, márgenes, barra lateral, botones, diálogo y elementos ocultos.
 STREAMLIT = """
-html,body,.stApp,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:var(--bg)!important;color:var(--text);font-family:var(--font)!important;font-size:14px;-webkit-font-smoothing:antialiased}
+html,body,.stApp,[data-testid="stAppViewContainer"],[data-testid="stMain"]{background:var(--bg)!important;color:var(--text);font-family:var(--font)!important;-webkit-font-smoothing:antialiased}
+.stApp{font-size:14px;line-height:1.5}
 .stApp{background-image:var(--bg-grad)!important;background-attachment:fixed!important}
 [data-testid="stAppViewContainer"],[data-testid="stMain"]{background:transparent!important}
 .stApp *{font-family:var(--font)}
@@ -161,25 +162,28 @@ html,body,.stApp,[data-testid="stAppViewContainer"],[data-testid="stMain"]{backg
 [data-testid="stSidebarNav"]{display:none!important}
 [data-testid="stMainBlockContainer"]{padding:0 32px 48px!important;max-width:none!important}
 .stElementContainer:has(>.stMarkdown style:only-child),.stElementContainer:has(style.solo){display:none}
-[data-testid="stMarkdownContainer"]{color:var(--text)}
+[data-testid="stMarkdownContainer"]{color:var(--text);font-size:14px;line-height:1.5;margin-bottom:0!important}
 [data-testid="stMarkdownContainer"] p{margin:0}
 [data-testid="stVerticalBlock"]{gap:14px}
 [data-testid="stSidebar"]{background:color-mix(in srgb,var(--side) 82%,transparent)!important;backdrop-filter:blur(16px);border-right:1px solid var(--border);width:248px!important;min-width:248px!important;max-width:248px!important}
 [data-testid="stSidebar"]>div:first-child{background:transparent;width:248px!important}
-[data-testid="stSidebarContent"]{padding:24px 16px 18px;position:relative;height:100vh}
+[data-testid="stSidebarContent"]{padding:24px 6px 18px;position:relative;height:100vh}
+[data-testid="stSidebarUserContent"]>div{padding:0!important}
 [data-testid="stSidebarUserContent"]{padding:0!important}
 [data-testid="stSidebar"] [data-testid="stVerticalBlock"]{gap:4px}
 .st-key-brand{margin-bottom:26px}
-.st-key-pie{position:absolute!important;left:16px;width:216px!important;bottom:18px}
+.st-key-pie{position:absolute!important;left:6px;width:216px!important;bottom:18px}
+.st-key-nav-t,.nav-t{margin-top:0}
 .st-key-pie [data-testid="stVerticalBlock"]{gap:10px}
 .st-key-nav [data-testid="stVerticalBlock"]{gap:4px}
-.st-key-nav button{display:flex;align-items:center;justify-content:flex-start;gap:12px;padding:10px 12px;border-radius:12px;color:var(--muted);font-weight:550;width:100%;text-align:left;background:transparent;border:0;transition:background .15s,color .15s;min-height:0;box-shadow:none}
-.st-key-nav button>div{flex:0 1 auto;justify-content:flex-start;text-align:left}.st-key-nav button p{text-align:left}
+.st-key-nav button{display:flex;align-items:center;justify-content:flex-start;gap:12px;padding:10px 12px!important;border-radius:12px;color:var(--muted);font-weight:550;width:100%;text-align:left;background:transparent;border:0;transition:background .15s,color .15s;min-height:0;box-shadow:none}
+.st-key-nav button>div{flex:0 1 auto;justify-content:flex-start;text-align:left}.st-key-nav button p{text-align:left;font-size:14px!important;font-weight:550!important;line-height:21px!important}
 .st-key-nav button:hover{background:var(--hover);color:var(--text);border:0}
 .st-key-nav button:focus:not(:active),.st-key-nav button:focus-visible{border:0;box-shadow:none;color:var(--muted)}
 .st-key-nav button::after{margin-left:auto;min-width:22px;height:20px;padding:0 7px;border-radius:999px;font-size:11.5px;font-weight:650;display:inline-grid;place-items:center;background:var(--card-3);color:var(--muted)}
 .stButton>button,.stDownloadButton>button{font:inherit}
 [data-testid^="stBaseButton-"]{min-height:0;line-height:1.5}
+button [data-testid="stMarkdownContainer"],[data-baseweb="select"] [data-testid="stMarkdownContainer"]{font-size:inherit!important;line-height:inherit!important}
 [data-testid^="stBaseButton-"] p{font-size:inherit!important;font-weight:inherit!important;margin:0;line-height:inherit}
 [data-testid="stBaseButton-secondary"]{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:11px;background:var(--card-2);border:1px solid var(--border);font-weight:600;font-size:13px;color:var(--text);transition:.15s}
 [data-testid="stBaseButton-secondary"]:hover{border-color:var(--border-2);background:var(--card-3);color:var(--text)}
@@ -189,6 +193,7 @@ html,body,.stApp,[data-testid="stAppViewContainer"],[data-testid="stMain"]{backg
 [data-testid="stBaseButton-primary"]:focus:not(:active){color:var(--on-accent);border-color:transparent}
 [data-testid="stBaseButton-tertiary"]{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:11px;background:transparent;border:1px solid transparent;color:var(--muted);font-weight:600;font-size:13px}
 [data-testid="stBaseButton-tertiary"]:hover{color:var(--text);background:var(--hover)}
+[data-testid="stBaseButton-secondary"],[data-testid="stBaseButton-primary"],[data-testid="stBaseButton-tertiary"]{font-size:13px!important;font-weight:600!important;padding:8px 14px!important;line-height:19.5px!important}
 [class*="st-key-seg_"]{display:inline-flex!important;flex-direction:row!important;width:max-content!important;max-width:100%;flex-wrap:wrap;background:var(--card-2);border:1px solid var(--border);border-radius:12px;padding:3px;gap:2px!important}
 [class*="st-key-seg_"]>.stElementContainer{width:auto!important;flex:0 0 auto!important}
 [class*="st-key-seg_"] button{border-radius:9px!important;padding:6px 12px!important;color:var(--muted)!important;font-weight:600;font-size:12.5px!important;background:transparent!important;border:0!important;box-shadow:none!important;filter:none!important}
@@ -198,6 +203,7 @@ html,body,.stApp,[data-testid="stAppViewContainer"],[data-testid="stMain"]{backg
 [class*="st-key-card_"]{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);min-width:0}
 [class*="st-key-filtros"]{padding:14px 16px}
 [class*="st-key-clk_"]{position:relative;gap:0!important}
+.st-key-tblwrap,.st-key-tblwrap [data-testid="stVerticalBlock"]{gap:0!important}
 [class*="st-key-btn_"]{position:absolute!important;inset:0;z-index:3;margin:0!important;width:auto!important;height:auto!important}
 [class*="st-key-btn_"] .stButton,[class*="st-key-btn_"] .stButton>div,[class*="st-key-btn_"] button{width:100%!important;height:100%!important;min-height:0;opacity:0;padding:0;border:0;cursor:pointer}
 [class*="st-key-clk_rank"]:hover,[class*="st-key-clk_trow"]:hover,[class*="st-key-clk_dpos"]:hover{background:var(--hover);border-radius:11px}
@@ -208,12 +214,12 @@ html,body,.stApp,[data-testid="stAppViewContainer"],[data-testid="stMain"]{backg
 [class*="st-key-clk_ah"]:hover{background:var(--hover)}
 [class*="st-key-ab_"]{padding:0 16px 16px 68px;gap:14px!important}
 [class*="st-key-acc_"]{gap:10px!important;align-items:center}
-.st-key-celular button{width:100%;justify-content:center}
+.st-key-celular button{width:100%;justify-content:center}.st-key-celular button>div{flex:0 0 auto!important}
 [data-testid="stSelectbox"] label{display:none}
 [data-testid="stSelectbox"] [data-baseweb="select"] div{background:transparent!important;border-color:transparent!important}
 [data-testid="stSelectbox"] [data-baseweb="select"]{background:var(--card-2)!important;border-radius:11px}
 [data-testid="stSelectbox"] [data-baseweb="select"]>div{background:var(--card-2)!important;border:1px solid var(--border)!important;border-radius:11px!important;color:var(--text)!important;font-size:13px;font-weight:550;min-height:0}
-[data-testid="stSelectbox"] [data-baseweb="select"] *{color:var(--text)!important}
+[data-testid="stSelectbox"] [data-baseweb="select"] *{color:var(--text)!important;font-size:13px!important;font-weight:550}
 [data-baseweb="popover"] [role="listbox"],[data-baseweb="popover"] ul{background:var(--card)!important;border:1px solid var(--border-2);border-radius:12px}
 [data-baseweb="popover"] li{color:var(--text)!important;font-size:13px}
 [data-baseweb="popover"] li:hover,[data-baseweb="popover"] li[aria-selected="true"]{background:var(--hover)!important}
@@ -225,7 +231,7 @@ html,body,.stApp,[data-testid="stAppViewContainer"],[data-testid="stMain"]{backg
 [data-testid="stToast"]{background:var(--card)!important;border:1px solid var(--border-2);border-radius:16px!important;color:var(--text)!important;box-shadow:0 20px 50px -18px rgba(0,0,0,.55)}
 [data-testid="stToast"] *{color:var(--text)}
 iframe{color-scheme:normal;background:transparent!important}[data-testid="stCustomComponentV1"],iframe[title*="mapa3d"]{border:0;display:block}
-.st-key-top{padding:26px 0 8px}
+.st-key-top{padding:28px 0 26px}
 .st-key-top [data-testid="stHorizontalBlock"]{align-items:center}
 .st-key-boton_tema button,.st-key-campana button{width:40px;height:40px;padding:0!important;justify-content:center;border-radius:12px!important;background:var(--card)!important;border:1px solid var(--border)!important;color:var(--muted)!important;box-shadow:var(--shadow);position:relative}
 .st-key-boton_tema button p,.st-key-campana button p{display:none}
@@ -246,7 +252,7 @@ iframe{color-scheme:normal;background:transparent!important}[data-testid="stCust
   .st-key-nav{flex-direction:row!important;justify-content:space-around;gap:0!important}
   .st-key-nav>.stElementContainer:first-child{display:none!important}
   .st-key-nav>.stElementContainer{flex:1 1 0!important;width:auto!important;min-width:0}
-  .st-key-nav button{flex-direction:column;gap:3px;padding:7px 4px;font-size:10.5px;align-items:center;justify-content:center}
+  .st-key-nav button{flex-direction:column;gap:3px;padding:7px 4px!important;font-size:10.5px;align-items:center;justify-content:center}
   .st-key-nav button::after{display:none}
   .st-key-nav button p{white-space:nowrap;font-size:10.5px!important;overflow:hidden;text-overflow:ellipsis}
   [data-testid="stMainBlockContainer"]{padding:0 16px 96px!important}

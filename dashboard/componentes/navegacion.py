@@ -28,7 +28,8 @@ def _css_nav(tab: str, n_alertas: int, hot: bool, n_inc: int) -> str:
     """Íconos, pantalla activa y contadores del menú (CSS generado en cada refresco)."""
     css = "".join(css_icono(f"nav_{k}", i, 19) for k, i, _ in TABS)
     css += (f".st-key-nav_{tab} button{{background:var(--accent-soft)!important;color:var(--text)!important}}"
-            f".st-key-nav_{tab} button::before{{background:var(--accent)!important}}")
+            f".st-key-nav_{tab} button::before{{background:var(--accent)!important}}"
+            f".st-key-nav_{tab} button p{{font-weight:600!important}}")
     for k, n in (("alertas", n_alertas), ("incidencias", n_inc)):
         if n:
             css += f'.st-key-nav_{k} button::after{{content:"{n}"}}'
