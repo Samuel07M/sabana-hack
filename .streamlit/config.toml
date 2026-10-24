@@ -1,0 +1,22 @@
+# Dashboard local: sin internet, sin telemetría y sin menú ni barra de Streamlit.
+[server]
+headless = true
+runOnSave = false
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "viewer"
+showSidebarNavigation = false
+showErrorDetails = true
+
+[ui]
+hideTopBar = true
+
+[theme]
+base = "dark"
+primaryColor = "#8C9EFF"
+backgroundColor = "#0A0F1E"
+secondaryBackgroundColor = "#0C1224"
+textColor = "#E8ECF6"
