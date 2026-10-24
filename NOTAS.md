@@ -32,3 +32,9 @@ Acordado el viernes 23 de octubre, ~22:30. Responde la Fase 0 de `planSamuel.md`
 | 08:00 | `finca.db` de una temporada `drones` con todas las tablas |
 | 09:30 | `python -m sim.run_vivo --config config/demo.yaml --velocidad 1` |
 | 10:30 | Gráficas y `metricas.parquet` en `data/resultados/` |
+
+## D. Datos biológicos (`Scientificic information.pdf`, Sara B.)
+15. Parámetros del PDF pasados a `config/default.yaml`. Cambios que afectan a Samuel:
+    - **Renombrado:** `clima.umbral_mojado_hr` → **`mojado.umbral_hr`**, ahora **95 %** (Broome), no 90 %. Ajustar la línea de umbral del detalle de cama (`planSamuel.md`, 2.3).
+    - Clima del altiplano: T 12–18 °C (media 15), HR > 70 %.
+    - Nivel de Broome (nulo / bajo / moderado / alto) disponible para el texto de las alertas `riesgo_7d`.

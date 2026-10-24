@@ -324,35 +324,40 @@ Severidades leídas de `config/default.yaml → alertas.severidad`, nunca escrit
 ### 6.1 Geometría (`sim/geometria.py`)
 - Por defecto 4 bloques × 6 naves × 12 camas × 40 plantas = **11 520 plantas**, 288 camas.
 - Índice global de planta `i` con arreglos `bloque[i]`, `nave[i]`, `cama[i]`, `posicion[i]` (posiciones 1…40).
-- **Vecindad** `V` (dispersa, se construye una vez): misma cama a ±2 posiciones → peso **1.0**; camas contiguas de la misma nave a ±1 posición → peso **0.4**.
+- **Vecindad** `V` (dispersa, se construye una vez) con el **núcleo exponencial del PDF**: `K(d) = exp(−b·d)`, `b = 0,5 /m`. Distancia en metros: misma cama `Δpos · separacion_plantas_m` (0,5 m, supuesto); cama contigua de la misma nave `√(1,8² + (Δpos·0,5)²)`. Pesos `< corte_nucleo` (0,05) se descartan. Valores de referencia: misma cama ±1 → 0,78; cama contigua → 0,41; dos camas → 0,17.
 - **Corriente de aire:** la ventilación sopla a lo largo de la nave en un sentido fijo. Una planta infecciosa aporta presión a las camas "aguas abajo" de su nave: `w_aire = exp(-d / L_aire)`, con `d` en camas.
 
-### 6.2 Clima por cama y hora (`sim/clima.py`)
+### 6.2 Clima y mojado por cama y hora (`sim/clima.py`)
 ```
-T  = T_media  + A_T  · sin(2π(h − 9)/24) + offset_nave + ruido
+T  = T_media  + A_T  · sin(2π(h − 9)/24) + offset_nave + ruido                                 # 15 ± 3 °C (altiplano 12–18 °C)
 HR = HR_media − A_HR · sin(2π(h − 9)/24) + offset_nave + extra_borde · es_borde + ruido     → recortar a [30, 100]
 ```
 - Eventos húmedos aleatorios (tasa `eventos_humedos_por_dia`), duran 6–18 h y suben la HR del **bloque**.
-- Ventilación **encendida**: HR de la nave `+ delta_ventilacion_hr` (−5) y activa la corriente de aire. **Apagada**: HR más alta, sin transporte de esporas. (Este dilema se muestra en la demo.)
-- Horas de mojado: horas con `HR ≥ umbral_mojado_hr` en ventanas de 24 h y 72 h.
-- `T`, `HR` y mojado **verdaderos** se guardan en memoria (numpy), no en la base.
+- Ventilación **encendida**: HR de la nave `+ delta_ventilacion_hr` (−5) y activa la corriente de aire. **Apagada**: HR más alta, sin transporte de esporas.
+- **Mojado (regla de Broome):** una hora está mojada si `HR ≥ mojado.umbral_hr` (95 %) **o** es hora de riego (`mojado.riego_horas`). `W` = horas del periodo mojado actual; se reinicia solo tras **más de 4 h secas seguidas**. También: horas mojadas en 24 h y 72 h.
+- **Punto de rocío (Magnus):** `γ = ln(HR/100) + a·T/(b + T)`, `Td = b·γ/(a − γ)`, `a = 17,62`, `b = 243,12`. Ejemplo del PDF: 15 °C y 95 % → Td ≈ 14,2 °C.
+- `T`, `HR`, `W` **verdaderos** en memoria (numpy), no en la base.
 
 ### 6.3 Enfermedad (`sim/enfermedad.py`, vectorizado)
 Estados por planta: `0 sana · 1 latente (contagia, sin síntomas) · 2 con síntomas · 3 tratada · 4 perdida`.
 
-```
-f_T  = exp(-((T - T_opt) / T_ancho)^2)
-f_M  = min(1, horas_mojado_24h / horas_mojado_full)
-p    = 1 - exp(-(β_vec·presion_vecinos + β_aire·presion_aire + β_0) · f_T · f_M)
+Modelo espacial estocástico del PDF (`p = 1 − exp(−λΔt)`, `λ = β · f_ambiental · Σ I_j K(d_ij)`) por planta y hora, con el factor ambiental de **Nair y Allen (1993)** (órgano `baya` por defecto):
 
-presion_vecinos = V @ (0.5·[latente] + 1.0·[síntomas])
+```
+Q            = exp(-((T - T_opt) / K_temp)^2)                 # baya: T_opt 20,8 °C, K_temp 8,9
+f_ambiental  = 1 - exp(-(Q · W / K_time)^2)                   # baya: K_time 13,9 h
+               = 0 si la hora no está mojada o T > T_sin_infeccion (40 °C)
+p            = 1 - exp(-(β_vec·presion_vecinos + β_aire·presion_aire + β_0) · f_ambiental)
+
+presion_vecinos = V @ (peso_latente·[latente] + peso_sintomas·[síntomas])
 presion_aire    = solo si la ventilación de la nave está encendida
 ```
-- Latente → síntomas tras `U(latencia_min, latencia_max)` días. Síntomas → perdida tras `sintomas_a_perdida_dias` si no se trata.
+- Pruebas obligatorias con los números del PDF: `f_ambiental(W=24, T=21) ≈ 0,949`; `f_ambiental(W=24, T=8) ≈ 0,047`; y los tres puntos "alto" de la tabla de arándano de UMaine (24 h a 12 °C, 13 h a 16 °C, 10 h a 20 °C) dan ≈ 0,34–0,40.
+- Latente → síntomas tras `U(latencia_dias)` días (**supuesto**: no verificado en arándano). Síntomas → perdida tras `sintomas_a_perdida_dias` si no se trata.
 - `tratar(plantas)`: éxito con probabilidad `eficacia_tratamiento` → tratada (deja de contagiar) → vuelve a sana tras `dias_proteccion`.
 - Focos iniciales: `focos_por_temporada` (1–3) en plantas aleatorias, preferir `es_borde_planta`.
-- **Calibración de β:** en `sensor_central`, la temporada termina con **5–15 %** de plantas afectadas. Barrido rápido de `β_vec` y `β_aire`.
-- **Verdad a disco [recomendación]:** guardar **eventos de cambio de estado** (`planta`, `cama_id`, `hora`, `estado_nuevo`) en vez de una foto por hora (11 520 × 1 440 filas sería innecesario). Basta para etiquetas y métricas.
+- **Calibración de β, en orden:** (1) `β_vec` hasta que, con un foco y `f_ambiental = 1`, la cama contigua se infecte ≈ 5,5 % en 7 días (`meta_cama_adyacente_7d`, PDF); (2) `β_aire` y `β_0` hasta 5–15 % de afectadas al final en `sensor_central`; (3) chequeo: un foco sin tratar crece aprox. como logística con `r ≈ 0,2/día`.
+- **Verdad a disco [recomendación]:** guardar **eventos de cambio de estado** (`planta`, `cama_id`, `hora`, `estado_nuevo`), no una foto por hora.
 
 ### 6.4 Sensores fijos (`sim/sensores.py`)
 - Escenario `sensor_central`/`actual`: un sensor por bloque en la **cama central**, mide `T` y `HR` con ruido cada hora → `lecturas` con `fuente='sensor_fijo'`.
@@ -375,7 +380,7 @@ presion_aire    = solo si la ventilación de la nave está encendida
 |---|---|
 | Temperatura | `temp_media_24h`, `temp_min_24h`, `temp_max_24h` |
 | Humedad | `hr_media_24h`, `hr_max_24h`, `delta_hr_24h` (contra el día anterior) |
-| Mojado | `horas_mojado_24h`, `horas_mojado_72h`, `dias_seguidos_hr_alta` |
+| Mojado | `horas_mojado_24h`, `horas_mojado_72h`, `max_mojado_continuo_24h`, `dias_seguidos_hr_alta`, `dpd_min_24h` (mín. de `T − Td`), `indice_broome_24h` |
 | Vecinos | `confirmadas_misma_cama`, `confirmadas_camas_vecinas`, `distancia_a_confirmada_en_nave` (en camas; **99** si no hay) |
 | Contexto | `ventilacion_encendida`, `es_borde` |
 | Calidad del dato | `edad_lectura_h` (horas desde la última medición real de esa cama) |
@@ -385,10 +390,16 @@ Si una cama no tiene lecturas propias en la ventana, usa el sensor central de su
 ### 6.7 Etiqueta (`prediccion/etiquetas.py`)
 `y = 1` si alguna planta de la cama pasa de sana a latente en las próximas **168 h**. Usa la verdad; solo para entrenar y evaluar.
 
-### 6.8 Reglas biológicas (`prediccion/reglas.py`)
+### 6.8 Reglas biológicas (`prediccion/reglas.py`) · índice de Broome et al. (1995)
+Con `W` = periodo mojado más largo de las últimas 24 h (medido) y `T` su temperatura media, recortada a [12, 32] (si `T > 40`, sin infección):
 ```
-riesgo_reglas = f_T(temp_media_24h) · min(1, horas_mojado_72h / umbral) · (1 + bonus si hay confirmadas cerca)    → recortar a [0, 1]
+indice        = c0 + c1·W + c2·W·T + c3·W·T²          # riesgo.broome_coef = [−2,647866, −0,374927, 0,061601, −0,001511]
+Y             = 1 / (1 + exp(−indice))
+riesgo_reglas = min(1, Y · (1 + bonus_confirmadas si hay confirmadas cerca))
 ```
+- Niveles de Broome para el texto de la alerta: `≤ 0` nulo, `0–0,5` bajo, `0,5–1` moderado, `> 1` alto.
+- Pruebas con el PDF: 24 h a 12 °C → 0,87; 12 h a 18 °C → 0,28.
+- **No unifiques la verdad y las reglas.** La verdad usa Nair y Allen y las reglas usan Broome a propósito; con el mismo modelo, las reglas acertarían por construcción.
 
 ### 6.9 Modelo de IA (`prediccion/ia.py`, `prediccion/entrenar.py`)
 - `HistGradientBoostingClassifier`, `class_weight='balanced'` (o pesos por muestra).
@@ -401,73 +412,20 @@ riesgo_reglas = f_T(temp_media_24h) · min(1, horas_mojado_72h / umbral) · (1 +
 
 ## 7. Configuración
 
-### 7.1 `config/default.yaml` (valores iniciales del plan · reemplazar con los de Sara B.)
+### 7.1 `config/default.yaml` (fuente de verdad)
 
-```yaml
-semilla: 7
-sim: {dias: 60, inicio: "2026-11-01T00:00:00"}
-geometria: {bloques: 4, naves_por_bloque: 6, camas_por_nave: 12, plantas_por_cama: 40}
-clima:
-  T_media: 18.0            # fuente: supuesto (invernadero en altiplano)
-  A_T: 6.0
-  HR_media: 78.0
-  A_HR: 10.0
-  extra_borde_hr: 4.0       # esquinas y bordes más húmedos
-  delta_ventilacion_hr: -5.0
-  eventos_humedos_por_dia: 0.15
-  umbral_mojado_hr: 90.0
-enfermedad:                 # botrytis, fuente: supuesto hasta recibir datos de Sara B.
-  T_opt: 18.0
-  T_ancho: 6.0
-  horas_mojado_full: 10
-  beta_vec: 0.05
-  beta_aire: 0.02
-  beta_0: 2.0e-6
-  L_aire_camas: 3.0
-  latencia_dias: [7, 14]
-  sintomas_a_perdida_dias: [14, 28]
-  eficacia_tratamiento: 0.85
-  dias_proteccion: 4
-  focos_por_temporada: [1, 3]
-drones:
-  por_bloque: 1
-  min_por_cama: 6
-  sens_latente: 0.25
-  sens_sintomas: 0.90
-  especificidad: 0.98
-  dias_revisita: 3
-  horas_hasta_tratamiento: 6
-  bateria_horas: 6
-  horas_carga: 1
-riesgo: {umbral_alto: 0.6, umbral_medio: 0.3}
-actual: {p_humano: 0.35, dias_ronda: 4}
-```
+Léelo directamente; **no lo copies a ningún otro documento**. Secciones: `geometria`, `clima`, `mojado`, `enfermedad` (con `nair_allen.baya` / `nair_allen.flor`), `sensores`, `drones`, `riesgo` (con `broome_*`), `entrenamiento`, `actual`, `celular`, `analisis`, `alertas` (Santiago) y `dashboard` (Samuel, no tocar).
 
-### 7.2 Parámetros que el plan usa pero el YAML original no tenía
+### 7.2 Origen de los parámetros
 
-**Ya están en `config/default.yaml`** (con `# fuente: supuesto` y nombres ligeramente distintos; el archivo manda). También están `alertas.severidad` y la sección `dashboard:` (de Samuel, no la toques). Referencia:
-
-| Parámetro | Valor del plan | Sección |
+| Marca en el YAML | Significa | Cómo tratarlo |
 |---|---|---|
-| `clima.duracion_evento_h` | `[6, 18]` | 2.2 |
-| `clima.ruido_T`, `clima.ruido_HR`, `clima.offset_nave_T`, `clima.offset_nave_HR` | — (definir) | 2.2 |
-| `clima.hr_rango` | `[30, 100]` | 2.2 |
-| `geometria.vecindad` | misma cama ±2 → 1.0; cama contigua ±1 → 0.4 | 2.1 |
-| `geometria.posiciones_esquina` | 1–5 y 36–40 | 2.1 |
-| `enfermedad.peso_latente`, `peso_sintomas` | 0.5, 1.0 | 2.3 |
-| `enfermedad.meta_afectadas_sensor_central` | `[0.05, 0.15]` | 2.3 |
-| `sensores.ruido_T`, `sensores.ruido_HR` | — (definir) | 2.4 |
-| `drones.horas_sin_visita_prioridad` | 24 | 4 |
-| `drones.horas_ventilacion_apagada` | 48 | 4 |
-| `drones.limpias_para_cerrar` | 2 | 4 |
-| `drones.bateria_min` | — (definir) | 4 |
-| `riesgo.hora_calculo` | 6 | 3.5 |
-| `riesgo.horizonte_h` | 168 | 3.2 |
-| `riesgo.bonus_confirmadas`, `riesgo.umbral_mojado_72h` | — (definir) | 3.3 |
-| `entrenamiento.semillas_train`, `semillas_test` | 0–39, 40–49 | 3.4 |
-| `celular.ventana_hora` | `[7, 15]`, una vez al día | 5.1 |
-| `analisis.top_k_camas` | 10 | 5.2 |
-| `analisis.umbral_foco_no_detectado` | 5 plantas con síntomas | 5.2 |
+| `biología (Sara B.) [A]` | Dato de arándano (UMaine, Dalhousie, Miles) | Firme |
+| `biología (Sara B.) [P]` | Modelo publicado en otro cultivo (Broome, Nair y Allen en vid) | Firme en estructura; declararlo en el pitch |
+| `biología (Sara B.) [S]` | Supuesto o inferencia del reporte | Se puede ajustar al calibrar |
+| `supuesto` | Nuestro | Se puede ajustar; declararlo |
+
+Fuente: `Scientificic information.pdf` (raíz del repo). Siguen siendo supuestos importantes: latencia en arándano, umbral de 95 % en arándano, separación entre plantas, sensibilidad de la cámara.
 
 ### 7.3 Reglas
 - `config/demo.yaml` sobrescribe solo lo que cambia respecto a `default.yaml` (carga: default → demo encima).

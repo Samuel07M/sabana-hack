@@ -14,12 +14,13 @@ Lee primero `CLAUDE.md` (contrato de datos y convenciones).
 1. **Contrato de datos con Samuel**
    - Revisar juntos `contrato/schema.sql` (en `CLAUDE.md`) y congelarlo.
    - Acordar quién escribe qué: yo escribo `corridas`, `camas`, `lecturas`, `riesgo`, `incidencias`, `seguimientos`, `drones`, `ventilacion` y `cola_sync`. Samuel lee todo y escribe el estado y la acción de las alertas.
-2. **Parámetros biológicos con Sara B.** (Botrytis primero). Pasarlos a `config/default.yaml`:
-   - Rango de temperatura favorable y óptimo.
-   - Humedad relativa que cuenta como “mojado” y horas de mojado para riesgo alto.
-   - Días de latencia (contagia sin síntomas) y días hasta pérdida sin tratamiento.
-   - Dónde aparecen síntomas (afecta la probabilidad de que la cámara los vea).
-   - Si no llegan a tiempo: dejar los valores supuestos de abajo marcados como `# fuente: supuesto`.
+2. **Parámetros biológicos de Sara B.: recibidos** (`Scientificic information.pdf`) y ya pasados a `config/default.yaml`:
+   - Clima del altiplano 12–18 °C, HR > 70 %. Óptimo de Botrytis 16–20 °C, germina de 5 a 30 °C.
+   - Mojado: HR ≥ 95 % (Broome), una pausa seca > 4 h reinicia el conteo; el riego también moja.
+   - Factor ambiental: Nair y Allen (1993); reglas: índice de Broome (1995); dispersión: núcleo exponencial (b = 0,5/m, camas a 1,8 m).
+   - Latencia **no verificada en arándano** → sigue como supuesto (el PDF usa 14 días en su ejemplo).
+   - Síntomas: moho gris-pardo en flores y frutos; entra por flores senescentes, frutos maduros y heridas.
+   - Lo que sigue como `# fuente: supuesto` está marcado así en el YAML; decláralo en el pitch.
 3. **Esqueleto del repo:** `sim/`, `prediccion/`, `analisis/`, `config/default.yaml`, `sim/escritor.py` que crea la base con `contrato/schema.sql`.
 
 **Listo cuando:** `python -m sim.run_temporada --dias 1` crea `data/finca.db` con las tablas vacías y la tabla `camas` llena.
@@ -33,8 +34,8 @@ Lee primero `CLAUDE.md` (contrato de datos y convenciones).
 - Índice global de planta `i` y arreglos: `bloque[i]`, `nave[i]`, `cama[i]`, `posicion[i]`.
 - `es_borde` (por cama, el del contrato): primera y última cama de cada nave. Se escribe en `camas` y es variable del modelo.
 - `es_borde_planta` (por planta, solo interno en `sim/`): cama de borde **o** posiciones 1–5 y 36–40 (esquinas). Nunca va a la base.
-- **Vecindad** (matriz dispersa, una vez): misma cama a ±2 posiciones (peso 1.0) y camas contiguas de la misma nave a ±1 posición (peso 0.4).
-- **Corriente de aire:** la ventilación sopla a lo largo de la nave en un sentido fijo. Una planta infecciosa aporta presión a las camas “aguas abajo” de su nave, decayendo con la distancia: `w_aire = exp(-d / L_aire)`.
+- **Vecindad** (matriz dispersa, una vez) con el **núcleo exponencial del PDF**: `K(d) = exp(−b·d)`, `b = 0,5 /m`, `d` en metros entre plantas (misma cama: `Δposición · separacion_plantas_m`; camas contiguas de la misma nave: `√(1,8² + (Δposición·sep)²)`). Pesos `< corte_nucleo` se descartan. Referencia: cama contigua misma posición 0,41; dos camas 0,17; misma cama ±1 posición 0,78.
+- **Corriente de aire:** la ventilación sopla a lo largo de la nave en un sentido fijo. Una planta infecciosa aporta presión a las camas “aguas abajo” de su nave, decayendo con la distancia: `w_aire = exp(-d / L_aire)`. (PDF: los conidios viajan por aire y Botrytis es de las que más salta entre camas.)
 
 ### 2.2 Clima por cama · `sim/clima.py`
 Por hora `h` (hora del día `h % 24`) y por cama:
@@ -42,7 +43,8 @@ Por hora `h` (hora del día `h % 24`) y por cama:
 - `HR = HR_media − A_HR·sin(2π(h−9)/24) + offset_nave + extra_borde·es_borde + ruido`, recortada a [30, 100].
 - **Eventos húmedos:** aleatorios (tasa por día), duran 6–18 h, suben la HR del bloque.
 - **Ventilación encendida:** baja la HR de la nave (`−Δ_vent`) pero activa la corriente de aire. Apagada: sube la HR, no hay transporte de esporas. Esto crea un dilema real que vale la pena mostrar.
-- **Horas de mojado:** acumulado de horas con `HR ≥ umbral_mojado` en ventanas de 24 h y 72 h.
+- **Mojado (regla de Broome, PDF):** una hora está mojada si `HR ≥ mojado.umbral_hr` (95 %) **o** es hora de riego (`mojado.riego_horas`). `W` = duración del periodo mojado actual; se reinicia solo si hay **más de 4 h secas seguidas** (`pausa_seca_reinicio_h`). También: horas mojadas en ventanas de 24 h y 72 h.
+- **Punto de rocío (Magnus, PDF):** `γ = ln(HR/100) + a·T/(b + T)`, `Td = b·γ/(a − γ)`, con `a = 17,62`, `b = 243,12`. Sirve como variable (`T − Td`).
 - Guardar `T`, `HR` y mojado verdaderos por cama y hora en memoria (numpy).
 
 ### 2.3 Enfermedad · `sim/enfermedad.py` (vectorizado)
@@ -50,11 +52,16 @@ Estados por planta: `0 sana · 1 latente (contagia, sin síntomas) · 2 con sín
 
 Probabilidad de infección por hora para una planta sana:
 
+Es el modelo espacial estocástico del PDF (`p = 1 − exp(−λ·Δt)`, `λ = β · f_ambiental · Σ I_j·K(d_ij)`) a nivel de planta, con el factor ambiental de **Nair y Allen (1993)** para baya:
+
 ```
-f_T  = exp(-((T - T_opt) / T_ancho)^2)
-f_M  = min(1, horas_mojado_24h / horas_mojado_full)
-p    = 1 - exp(-(β_vec·presion_vecinos + β_aire·presion_aire + β_0) · f_T · f_M)
+Q            = exp(-((T - T_opt) / K_temp)^2)                 # T_opt 20,8 °C, K_temp 8,9
+f_ambiental  = 1 - exp(-(Q · W / K_time)^2)                   # W = horas del periodo mojado actual, K_time 13,9 h
+               (= 0 si la hora no está mojada o T > 40 °C)
+p            = 1 - exp(-(β_vec·presion_vecinos + β_aire·presion_aire + β_0) · f_ambiental)
 ```
+
+Chequeos del PDF que deben salir así (prueba en `tests/`): 24 h a 21 °C → 0,949; 24 h a 8 °C → 0,047. Y reproduce la tabla de arándano de UMaine: 24 h a 12 °C, 13 h a 16 °C y 10 h a 20 °C dan todos ≈ 0,34–0,40 (el umbral de riesgo alto).
 
 - `presion_vecinos = V @ (0.5·[latente] + 1.0·[síntomas])`
 - `presion_aire` solo si la ventilación de la nave está encendida.
@@ -62,7 +69,10 @@ p    = 1 - exp(-(β_vec·presion_vecinos + β_aire·presion_aire + β_0) · f_T 
 - `tratar(plantas)`: éxito con probabilidad `eficacia`, pasa a tratada (deja de contagiar), vuelve a sana tras `dias_proteccion`.
 - Semillas de infección: 1–3 focos por temporada en plantas aleatorias (preferir `es_borde_planta`).
 
-**Calibrar `β`:** en el escenario `sensor_central`, la temporada debe terminar con 5–15 % de plantas afectadas. Hacer un barrido rápido de `β_vec` y `β_aire`.
+**Calibrar `β`** (en este orden):
+1. `β_vec` con la meta del PDF: un foco, `f_ambiental = 1`, la cama contigua se infecta con ≈ **5,5 % en una semana** (`meta_cama_adyacente_7d`).
+2. `β_aire` y `β_0` para que en `sensor_central` la temporada termine con **5–15 %** de plantas afectadas (supuesto).
+3. Chequeo de cordura: un foco sin tratar crece aprox. como una logística con `r ≈ 0,2/día` (PDF, ejemplo [S]).
 
 ### 2.4 Sensores fijos · `sim/sensores.py`
 - Escenario `sensor_central`: un sensor por bloque en la cama central. Mide `T` y `HR` de esa cama con ruido cada hora. Para las demás camas, el sistema solo “sabe” ese valor.
@@ -80,7 +90,8 @@ Las variables se calculan **solo con lo que la finca conocería**: lecturas (sen
 Para cada cama, cada día a las 06:00:
 - `temp_media_24h`, `temp_min_24h`, `temp_max_24h`
 - `hr_media_24h`, `hr_max_24h`, `delta_hr_24h` (cambio contra el día anterior)
-- `horas_mojado_24h`, `horas_mojado_72h`, `dias_seguidos_hr_alta`
+- `horas_mojado_24h`, `horas_mojado_72h`, `max_mojado_continuo_24h` (regla de Broome), `dias_seguidos_hr_alta`
+- `dpd_min_24h` (mínimo de `T − Td`, punto de rocío), `indice_broome_24h`
 - `confirmadas_misma_cama`, `confirmadas_camas_vecinas`, `distancia_a_confirmada_en_nave` (en camas; 99 si no hay)
 - `ventilacion_encendida`, `es_borde`
 - `edad_lectura_h` (horas desde la última medición real de esa cama; alta si solo hay sensor central)
@@ -89,7 +100,17 @@ Para cada cama, cada día a las 06:00:
 `y = 1` si alguna planta de la cama pasa de sana a latente en los próximos 7 días (168 h). Se calcula con la verdad del simulador, solo para entrenar y evaluar.
 
 ### 3.3 Línea base: reglas biológicas · `prediccion/reglas.py`
-`riesgo_reglas = f_T(temp_media_24h) · min(1, horas_mojado_72h / umbral) · (1 + bonus si hay confirmadas cerca)`, recortado a [0, 1]. Es lo que haría un agrónomo con una tabla; sirve para comparar.
+**Índice de Broome et al. (1995)** con el periodo mojado más largo de las últimas 24 h (`W`) y su temperatura media (`T`, recortada a [12, 32]; si `T > 40` no hay infección):
+
+```
+indice        = −2,647866 − 0,374927·W + 0,061601·W·T − 0,001511·W·T²
+Y             = 1 / (1 + exp(−indice))
+riesgo_reglas = min(1, Y · (1 + bonus_confirmadas si hay confirmadas cerca))
+```
+
+Niveles de Broome (para el mensaje de la alerta): `≤ 0` nulo, `0–0,5` bajo, `0,5–1` moderado, `> 1` alto; se actúa desde 0,5. Chequeos del PDF: 24 h a 12 °C → 0,87; 12 h a 18 °C → 0,28.
+
+**Importante:** la "verdad" del simulador usa Nair y Allen, y las reglas usan Broome. Son modelos distintos a propósito; si fueran el mismo, las reglas acertarían por construcción y la comparación con la IA no valdría. Limitación visible de Broome: recorta T a 12 °C, así que no ve que el frío (8 °C) frena la infección. La IA sí puede aprenderlo.
 
 ### 3.4 Modelo de IA · `prediccion/ia.py`, `prediccion/entrenar.py`
 - `HistGradientBoostingClassifier` de scikit-learn (sin dependencias extra). LightGBM solo si ya está instalado.
@@ -179,53 +200,17 @@ Un dron por bloque. Estados: `patrulla → prioridad → inspeccionando → carg
    - “Sin internet perdemos Y días de anticipación, pero seguimos avisando antes.”
 4. Preparar dos respuestas para el jurado:
    - **¿Por qué IA y no solo reglas?** Por la interacción no lineal entre humedad, temperatura, cambios bruscos y vecinos, y porque aprende de la finca con cada temporada.
-   - **¿Qué tan reales son los datos?** Son simulados, con parámetros de literatura revisados por la bióloga. El siguiente paso es calibrarlos con lecturas reales de un piloto.
+   - **¿Qué tan reales son los datos?** Son simulados, pero con modelos publicados: Nair y Allen (1993) para la infección, Broome et al. (1995) para las reglas y el mojado, la tabla de arándano de UMaine para validar, y un núcleo de dispersión exponencial. Los que siguen siendo supuestos (latencia en arándano, umbral de 95 % para arándano) están declarados. El siguiente paso es un piloto con un **sensor de mojado foliar** en una cama para contrastar las horas estimadas (lo recomienda el PDF).
+5. **Escalabilidad (slide de negocio):** la misma estructura matemática sirve para otros cultivos cambiando solo parámetros. Ejemplo listo en el PDF: flores de corte de la Sabana, moho gris (Kerssies: riesgo si HR media > 70 % los días 6–8 antes de cosecha) y mildiú velloso de la rosa (4–21 °C, 8–12 h de mojado, el que mejor encaja con el altiplano).
+6. **El ciclo fitosanitario del PDF** (prevención → monitoreo → identificación → alerta → delimitación → respuesta → evaluación) se mapea uno a uno a nuestro flujo; úsalo en la slide del flujo.
 
 **11:30 código congelado.**
 
 ---
 
-## Parámetros iniciales (`config/default.yaml`) · reemplazar con los de Sara B.
+## Parámetros · `config/default.yaml`
 
-```yaml
-semilla: 7
-sim: {dias: 60, inicio: "2026-11-01T00:00:00"}
-geometria: {bloques: 4, naves_por_bloque: 6, camas_por_nave: 12, plantas_por_cama: 40}
-clima:
-  T_media: 18.0            # fuente: supuesto (invernadero en altiplano)
-  A_T: 6.0
-  HR_media: 78.0
-  A_HR: 10.0
-  extra_borde_hr: 4.0       # esquinas y bordes más húmedos
-  delta_ventilacion_hr: -5.0
-  eventos_humedos_por_dia: 0.15
-  umbral_mojado_hr: 90.0
-enfermedad:                 # botrytis, fuente: supuesto hasta recibir datos de Sara B.
-  T_opt: 18.0
-  T_ancho: 6.0
-  horas_mojado_full: 10
-  beta_vec: 0.05
-  beta_aire: 0.02
-  beta_0: 2.0e-6
-  L_aire_camas: 3.0
-  latencia_dias: [7, 14]
-  sintomas_a_perdida_dias: [14, 28]
-  eficacia_tratamiento: 0.85
-  dias_proteccion: 4
-  focos_por_temporada: [1, 3]
-drones:
-  por_bloque: 1
-  min_por_cama: 6
-  sens_latente: 0.25
-  sens_sintomas: 0.90
-  especificidad: 0.98
-  dias_revisita: 3
-  horas_hasta_tratamiento: 6
-  bateria_horas: 6
-  horas_carga: 1
-riesgo: {umbral_alto: 0.6, umbral_medio: 0.3}
-actual: {p_humano: 0.35, dias_ronda: 4}
-```
+Todos los parámetros viven en `config/default.yaml` (ya creado), con su fuente: `biología (Sara B.)` con la marca del PDF ([A] arándano, [P] modelo publicado en otro cultivo, [S] supuesto del reporte) o `supuesto`. No los copies aquí: el archivo manda.
 
 ---
 
