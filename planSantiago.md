@@ -31,7 +31,8 @@ Lee primero `CLAUDE.md` (contrato de datos y convenciones).
 ### 2.1 Geometría · `sim/geometria.py`
 - 4 bloques × 6 naves × 12 camas × 40 plantas (configurable). Camas numeradas continuas dentro del bloque.
 - Índice global de planta `i` y arreglos: `bloque[i]`, `nave[i]`, `cama[i]`, `posicion[i]`.
-- `es_borde`: primera y última cama de cada nave, y las posiciones 1–5 y 36–40 (esquinas).
+- `es_borde` (por cama, el del contrato): primera y última cama de cada nave. Se escribe en `camas` y es variable del modelo.
+- `es_borde_planta` (por planta, solo interno en `sim/`): cama de borde **o** posiciones 1–5 y 36–40 (esquinas). Nunca va a la base.
 - **Vecindad** (matriz dispersa, una vez): misma cama a ±2 posiciones (peso 1.0) y camas contiguas de la misma nave a ±1 posición (peso 0.4).
 - **Corriente de aire:** la ventilación sopla a lo largo de la nave en un sentido fijo. Una planta infecciosa aporta presión a las camas “aguas abajo” de su nave, decayendo con la distancia: `w_aire = exp(-d / L_aire)`.
 
@@ -59,7 +60,7 @@ p    = 1 - exp(-(β_vec·presion_vecinos + β_aire·presion_aire + β_0) · f_T 
 - `presion_aire` solo si la ventilación de la nave está encendida.
 - Latente → síntomas tras `U(latencia_min, latencia_max)` días. Síntomas → perdida si no se trata.
 - `tratar(plantas)`: éxito con probabilidad `eficacia`, pasa a tratada (deja de contagiar), vuelve a sana tras `dias_proteccion`.
-- Semillas de infección: 1–3 focos por temporada en camas aleatorias (preferir bordes).
+- Semillas de infección: 1–3 focos por temporada en plantas aleatorias (preferir `es_borde_planta`).
 
 **Calibrar `β`:** en el escenario `sensor_central`, la temporada debe terminar con 5–15 % de plantas afectadas. Hacer un barrido rápido de `β_vec` y `β_aire`.
 

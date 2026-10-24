@@ -21,7 +21,7 @@ Flujo lineal (es el corazón de la propuesta):
 
 ## Ubicación: nomenclatura de la finca
 
-Toda ubicación se expresa como **Bloque · Nave · Cama**, igual que en la finca (ej. `Bloque 1 · Nave 2 · Cama 68`). No usamos coordenadas x/y en la interfaz.
+Toda ubicación se expresa como **Bloque · Nave · Cama**, igual que en la finca (ej. `Bloque 1 · Nave 2 · Cama 14`). No usamos coordenadas x/y en la interfaz.
 
 - Geometría por defecto (cambiar en `config/default.yaml` si hay datos reales): 4 bloques × 6 naves × 12 camas por nave.
 - Las camas se numeran **continuas dentro del bloque**: nave 1 = camas 1–12, nave 2 = camas 13–24, …, nave 6 = camas 61–72.
@@ -53,7 +53,7 @@ Es la frontera entre el simulador y el dashboard. El simulador **escribe**; el h
 CREATE TABLE corridas (
   corrida_id TEXT PRIMARY KEY,      -- 'demo', 'temporada-7', 'exp-drones-12'
   modo TEXT NOT NULL,               -- 'vivo' | 'temporada' | 'experimento'
-  escenario TEXT NOT NULL,          -- 'sensor_central' | 'drones' | 'drones_celular' | 'demo'
+  escenario TEXT NOT NULL,          -- 'actual' | 'sensor_central' | 'drones' | 'drones_celular' | 'drones_sin_vent' | 'demo'
   semilla INTEGER NOT NULL,
   config_json TEXT NOT NULL,
   inicio_sim TEXT NOT NULL          -- ISO 8601
@@ -134,6 +134,7 @@ CREATE TABLE cola_sync (            -- nivel 2: datos esperando llegar al modelo
 ## Convenciones
 
 - Python 3.12, entorno virtual `.venv`. Dependencias en `requirements.txt` con versiones fijadas.
+- Windows: abre siempre los archivos de texto con `encoding="utf-8"` (por defecto Windows usa cp1252 y rompe las tildes y la ñ).
 - Toda corrida recibe una `semilla`. Una sola fuente de aleatoriedad por corrida: `numpy.random.default_rng(semilla)`. Nunca `random` global.
 - Todo parámetro va en `config/default.yaml` con comentario de origen: `# fuente: biología (Sara B.)`, `# fuente: supuesto`, `# fuente: ficha técnica`. Nada de números mágicos en el código.
 - El tiempo simulado se mide en **horas desde el inicio** (`hora`) y **días** (`dia = hora // 24`).
@@ -143,8 +144,11 @@ CREATE TABLE cola_sync (            -- nivel 2: datos esperando llegar al modelo
 
 ## Comandos
 
-```bash
-python -m venv .venv && source .venv/bin/activate
+Los dos trabajamos en **Windows con PowerShell**. Rutas con `\` en la terminal; en el código usa `pathlib.Path` (nunca rutas armadas a mano).
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1          # si sale "running scripts is disabled": Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 pip install -r requirements.txt
 
 python -m sim.run_temporada --escenario drones --semilla 7      # temporada completa → data/finca.db
