@@ -19,7 +19,9 @@ def parsear_args(argv=None) -> argparse.Namespace:
     p.add_argument("--db", type=Path, default=DB_DEFAULT)
     p.add_argument("--semilla", type=int, default=None, help="por defecto la de la config")
     p.add_argument("--horas", type=int, default=None, help="por defecto los días de la config × 24")
-    p.add_argument("--anexar", action="store_true", help="conserva la base y reemplaza solo la corrida `demo`")
+    p.add_argument("--recrear", action="store_true", help="borra la base y la crea de nuevo (por defecto se conserva "
+                                                          "y solo se reemplaza la corrida `demo`)")
+    p.add_argument("--anexar", action="store_true", help=argparse.SUPPRESS)   # compatibilidad: ya es el comportamiento por defecto
     return p.parse_args(argv)
 
 
@@ -29,7 +31,7 @@ def main(argv=None) -> None:
     cfg = cargar_config(args.config)
     semilla = cfg["semilla"] if args.semilla is None else args.semilla
     cfg["semilla"] = semilla
-    con = escritor.crear_base(args.db, cfg, anexar=args.anexar)
+    con = escritor.crear_base(args.db, cfg, recrear=args.recrear)
     try:
         escritor.borrar_corrida(con, CORRIDA_DEMO)
         escritor.insertar_corrida(con, CORRIDA_DEMO, "vivo", "demo", semilla, cfg)

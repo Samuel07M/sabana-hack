@@ -22,10 +22,14 @@ def severidad(cfg: dict, tipo: str, empeora: bool = False) -> str:
 
 
 def riesgo_7d(cama, prob, horas_mojado, nivel_broome, cfg) -> tuple[str, str]:
-    """(titulo, mensaje) de una alerta riesgo_7d."""
+    """(titulo, mensaje) de una alerta riesgo_7d; explica si las reglas de Broome coinciden o si el aviso viene solo de la IA."""
+    if nivel_broome in ("moderado", "alto"):
+        motivo = f"Mojado continuo de {horas_mojado:.0f} h (índice de Broome: {nivel_broome})."
+    else:
+        motivo = (f"Mojado continuo de {horas_mojado:.0f} h: las reglas de Broome solas no lo marcarían ({nivel_broome}); "
+                  "el aviso viene del modelo (humedad acumulada, bordes y camas vecinas).")
     return ("Riesgo alto de Botrytis",
-            f"{ubicacion(cama)}: alto riesgo de Botrytis en los próximos 7 días (prob. {prob:.2f}). "
-            f"Mojado continuo de {horas_mojado:.0f} h (índice de Broome: {nivel_broome}).")
+            f"{ubicacion(cama)}: alto riesgo de Botrytis en los próximos 7 días (prob. {prob:.2f}). {motivo}")
 
 
 def confirmacion(cama, posicion, afectadas, confianza) -> tuple[str, str]:

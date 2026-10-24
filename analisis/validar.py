@@ -39,7 +39,7 @@ def correr_una(args: tuple):
     if sim.dataset:
         riesgo = entrenar.dataset_de_corrida(sim)[["semilla", "dia", "cama", "y", "reglas", "prob"]].assign(escenario=escenario)
     if guardar_db:
-        con = escritor.crear_base(EXPERIMENTOS / f"{corrida_id}.db", cfg)
+        con = escritor.crear_base(EXPERIMENTOS / f"{corrida_id}.db", cfg, recrear=True)
         escritor.insertar_corrida(con, corrida_id, "experimento", escenario, semilla, cfg)
         escritor.insertar_camas(con, geometria.listar_camas(cfg))
         escritor.volcar(con, sim)

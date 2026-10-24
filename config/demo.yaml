@@ -1,15 +1,15 @@
-﻿# config/demo.yaml · escenario de la demo (se aplica ENCIMA de default.yaml; solo lo que cambia)
+# config/demo.yaml · escenario de la demo (se aplica ENCIMA de default.yaml; solo lo que cambia)
 # Secuencia (≈3 min a 1 h simulada por segundo): noche húmeda del día 2 con un foco latente en B1 · Nave 2 · Cama 14
 # → alerta riesgo_7d (06:00) → el dron pasa de patrulla a prioridad → inspecciona → confirmada → ventilación apagada (auto)
 # → seguimiento a los 3 días (mejora) → paso "Sin red" (run_vivo escribe cola_sync; el hub muestra "Pasa el celular").
-semilla: 5                              # fuente: supuesto · elegida para que la secuencia ocurra completa, con IA o solo con reglas (ver tests/test_demo.py)
+semilla: 35                             # fuente: supuesto · elegida para que la secuencia ocurra completa, con IA o solo con reglas (ver tests/test_demo.py)
 sim: {dias: 8, inicio: "2026-11-01T00:00:00"}   # fuente: supuesto · 192 h ≈ 3 min a 1 h/s
 geometria:
   bloques: 1                            # fuente: supuesto · solo el Bloque 1
 clima:
   eventos_humedos_por_dia: 0.0          # fuente: supuesto · sin eventos aleatorios: solo el forzado
-  eventos_forzados:                     # fuente: supuesto · jornada húmeda del día 2 (horas 30-54: nubosidad y lluvia; termina al calcular el riesgo de las 06:00)
-    - {bloque: 1, hora: 30, duracion_h: 24, subida_hr: 25.0}
+  eventos_forzados:                     # fuente: supuesto · jornada húmeda del día 2 solo en la Nave 2 (horas 30-54; termina al calcular el riesgo de las 06:00)
+    - {bloque: 1, nave: 2, hora: 30, duracion_h: 24, subida_hr: 25.0}
 enfermedad:
   focos_forzados:                       # fuente: supuesto · foco latente (3 plantas) en Nave 2 · Cama 14, justo antes de la alerta de las 06:00
     - {cama_id: B1-N2-C14, posicion: 21, hora: 52}

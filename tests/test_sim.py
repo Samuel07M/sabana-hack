@@ -225,6 +225,16 @@ def test_escenario_actual_confirma_solo_sintomas_y_sin_modelo():
     assert sim.inc and all(i["origen"] == "patrulla" for i in sim.inc.values())
 
 
+def test_actual_cierra_tras_tratar_y_la_cama_vuelve_a_la_ronda():
+    cfg = cfg_chica(actual={"p_humano": 1.0, "dias_ronda": 1}, sim={"dias": 30})
+    cfg["enfermedad"]["latencia_dias"] = [2, 2]
+    cfg["enfermedad"]["eficacia_tratamiento"] = 0.0          # el tratamiento falla: la ronda debe volver a verla
+    sim = correr(cfg, "actual")
+    camas = [i["cama"] for i in sim.inc.values()]
+    assert all(i["estado"] in ("confirmada", "cerrada") for i in sim.inc.values())
+    assert len(camas) > len(set(camas))                       # la misma cama se volvió a detectar
+
+
 def test_celular_deja_hora_recibida_y_retrasa_la_confirmacion():
     cfg = cfg_chica()
     lan, cel = correr(cfg, "drones"), correr(cfg, "drones_celular")

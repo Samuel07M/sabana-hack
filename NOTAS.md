@@ -44,6 +44,10 @@ Acordado el viernes 23 de octubre, ~22:30. Responde la Fase 0 de `planSamuel.md`
 23. **IA.** Hiperparámetros elegidos en validación con las semillas 30-39 (del bloque de entrenamiento). Las semillas de prueba 40-49 solo se usaron para reportar. `analisis.validar` usa semillas desde 40. Hay dos modelos: `modelo_ia` (todos los datos) y `modelo_ia_central` (solo sensor fijo, escenario `sensor_central`).
 24. **Corridas de validación**: no se guardan en `data/experimentos/*.db` por defecto (150 bases ≈ 2 GB). `python -m analisis.validar --guardar-db` las guarda.
 25. **Demo** (`config/demo.yaml`): jornada húmeda forzada (horas 30-54, +25 % HR), foco de 3 plantas latentes en B1 · Nave 2 · Cama 14 a la hora 52, sin contagio por aire ni falsas alarmas, umbral `alto` en 0,45 (la IA es prudente sin vecinas confirmadas), 8 días = 192 h ≈ 3 min a 1 h/s.
+26. **(24 oct) La base ya no se borra por defecto.** `run_temporada` y `run_vivo` conservan `data/finca.db` y solo reemplazan su propia corrida; para empezar de cero: `--recrear`. Así correr la demo no borra la temporada que usa el dashboard.
+27. **(24 oct) Demo:** la jornada húmeda forzada cae solo en la **Nave 2** (antes todo el bloque → 51 alertas a la vez; ahora ≈ 13). Semilla de la demo: **35**. Las alertas `riesgo_7d` ya no se contradicen: si las reglas de Broome dicen nulo/bajo, el mensaje explica que el aviso viene del modelo.
+28. **(24 oct) Escenario `actual`:** tras el tratamiento la incidencia se cierra y la cama vuelve a la ronda manual (antes quedaba `en_tratamiento` para siempre y nadie volvía a revisarla, lo que inflaba las plantas afectadas de `actual`).
+29. **Pendiente, cuando Samuel suba su código:** cambiar el vocabulario de **dron → robot de riel** en todo (textos, docs y contrato: tabla `drones`, `dron_id`, fuente `'dron:B1'`).
 
 ## D. Datos biológicos (`Scientificic information.pdf`, Sara B.)
 15. Parámetros del PDF pasados a `config/default.yaml`. Cambios que afectan a Samuel:

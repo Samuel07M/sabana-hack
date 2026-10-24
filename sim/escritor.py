@@ -16,11 +16,11 @@ IDS = {"inc": ("incidencias", "incidencia_id"), "alerta": ("alertas", "alerta_id
        "seg": ("seguimientos", "seguimiento_id"), "cola": ("cola_sync", "id")}
 
 
-def crear_base(ruta: Path, cfg: dict, anexar: bool = False) -> sqlite3.Connection:
-    """Recrea la base en `ruta` con el esquema del contrato, WAL y busy_timeout (con `anexar`, conserva la existente)."""
+def crear_base(ruta: Path, cfg: dict, recrear: bool = False) -> sqlite3.Connection:
+    """Abre la base en `ruta` (WAL, busy_timeout) conservando lo que tenga; la crea desde el contrato si no existe o si `recrear`."""
     ruta = Path(ruta)
     ruta.parent.mkdir(parents=True, exist_ok=True)
-    if anexar and ruta.exists():
+    if not recrear and ruta.exists():
         con = sqlite3.connect(ruta)
         con.execute("PRAGMA journal_mode=WAL")
         con.execute(f"PRAGMA busy_timeout={int(cfg['base_datos']['busy_timeout_ms'])}")
@@ -66,7 +66,7 @@ def insertar_camas(con: sqlite3.Connection, camas: list[dict]) -> None:
 
 
 def borrar_corrida(con: sqlite3.Connection, corrida_id: str) -> None:
-    """Quita de todas las tablas las filas de una corrida (para reemplazarla al anexar)."""
+    """Quita de todas las tablas las filas de una corrida (para reemplazarla sin tocar las demás)."""
     with con:
         for tabla in TABLAS_POR_CORRIDA:
             con.execute(f"DELETE FROM {tabla} WHERE corrida_id = ?", (corrida_id,))

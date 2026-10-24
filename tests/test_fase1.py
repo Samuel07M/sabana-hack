@@ -58,8 +58,18 @@ def test_recrear_la_base_borra_la_anterior(cfg, tmp_path):
     con = escritor.crear_base(ruta, cfg)
     escritor.insertar_camas(con, geometria.listar_camas(cfg))
     con.close()
-    con = escritor.crear_base(ruta, cfg)
+    con = escritor.crear_base(ruta, cfg, recrear=True)
     assert escritor.contar_filas(con)["camas"] == 0
+    con.close()
+
+
+def test_por_defecto_la_base_se_conserva(cfg, tmp_path):
+    ruta = tmp_path / "t.db"
+    con = escritor.crear_base(ruta, cfg)
+    escritor.insertar_camas(con, geometria.listar_camas(cfg))
+    con.close()
+    con = escritor.crear_base(ruta, cfg)
+    assert escritor.contar_filas(con)["camas"] == 288
     con.close()
 
 

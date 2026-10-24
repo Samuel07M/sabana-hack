@@ -22,7 +22,9 @@ def parsear_args(argv=None) -> argparse.Namespace:
     p.add_argument("--dias", type=int, default=None, help="por defecto los de config")
     p.add_argument("--db", type=Path, default=DB_DEFAULT)
     p.add_argument("--config", type=Path, default=None, help="YAML que se aplica sobre default.yaml")
-    p.add_argument("--anexar", action="store_true", help="conserva la base y reemplaza solo esta corrida")
+    p.add_argument("--recrear", action="store_true", help="borra la base y la crea de nuevo (por defecto se conserva "
+                                                          "y solo se reemplaza esta corrida)")
+    p.add_argument("--anexar", action="store_true", help=argparse.SUPPRESS)   # compatibilidad: ya es el comportamiento por defecto
     return p.parse_args(argv)
 
 
@@ -36,10 +38,10 @@ def guardar_verdad(sim: Simulacion, ruta: Path) -> None:
 
 
 def correr(cfg: dict, escenario: str, semilla: int, db: Path, corrida_id: str | None = None,
-           modo: str = "temporada", verdad: Path | None = None, modelo="auto", anexar: bool = False) -> Simulacion:
+           modo: str = "temporada", verdad: Path | None = None, modelo="auto", recrear: bool = False) -> Simulacion:
     """Simula una temporada completa y la escribe en `db`; devuelve la simulación."""
     corrida_id = corrida_id or f"temporada-{semilla}"
-    con = escritor.crear_base(db, cfg, anexar=anexar)
+    con = escritor.crear_base(db, cfg, recrear=recrear)
     try:
         escritor.borrar_corrida(con, corrida_id)
         escritor.insertar_corrida(con, corrida_id, modo, escenario, semilla, cfg)
@@ -70,7 +72,7 @@ def main(argv=None) -> None:
     corrida_id = f"temporada-{semilla}"
     verdad = args.db.parent / f"verdad_{corrida_id}.parquet"
     t0 = time.time()
-    correr(cfg, args.escenario, semilla, args.db, corrida_id, verdad=verdad, anexar=args.anexar)
+    correr(cfg, args.escenario, semilla, args.db, corrida_id, verdad=verdad, recrear=args.recrear)
     con = sqlite3.connect(args.db)
     filas = escritor.contar_filas(con)
     con.close()

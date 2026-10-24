@@ -32,7 +32,7 @@ clima:
   offset_nave_HR_sd: 2.0                # fuente: supuesto
   ruido_T_sd: 0.3                       # fuente: supuesto
   ruido_HR_sd: 1.5                      # fuente: supuesto
-  eventos_forzados: []                  # fuente: supuesto · demo: [{bloque, hora, duracion_h}]
+  eventos_forzados: []                  # fuente: supuesto · demo: [{bloque, nave (opcional), hora, duracion_h, subida_hr (opcional)}]
 mojado:                                 # cómo se pasa de HR a horas de mojado (PDF, "Pasar de HR a horas de mojado")
   umbral_hr: 95.0                       # fuente: biología (Sara B.) [P] Broome 1995 · no validado en arándano: declararlo
   pausa_seca_reinicio_h: 4              # fuente: biología (Sara B.) [P] Broome · pausa seca > 4 h reinicia el conteo

@@ -351,6 +351,10 @@ class Simulacion:
         self._estado(inc, "en_tratamiento")
         if self.flags["drones"]:
             self.rev_pend[inc_id] = h + self.cfg["drones"]["dias_revisita"] * 24
+        else:                                     # sin dron nadie hace seguimiento: se cierra y la cama vuelve a la ronda manual
+            self._estado(inc, "en_seguimiento")
+            self._estado(inc, "cerrada", hora_cerrada=h)
+            self.abierta.pop(inc["cama"], None)
 
     def _ev_revisita(self, h: int, inc_id: int, n: int, t_visita: float, dron_id: str) -> None:
         """Resultado de una revisita: seguimiento, alerta y nuevo estado de la incidencia."""
