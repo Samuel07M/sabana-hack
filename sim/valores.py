@@ -6,6 +6,22 @@ ENFERMEDADES = ("botrytis",)
 NIVELES_RIESGO = ("bajo", "medio", "alto")
 ORIGENES_INCIDENCIA = ("prediccion", "patrulla")
 ESTADOS_INCIDENCIA = ("sospecha", "confirmada", "en_tratamiento", "en_seguimiento", "cerrada", "descartada")
+TRANSICIONES = {  # máquina de estados de una incidencia (guía, sección 5.2)
+    "sospecha": ("confirmada", "descartada"),
+    "confirmada": ("en_tratamiento",),
+    "en_tratamiento": ("en_seguimiento",),
+    "en_seguimiento": ("confirmada", "cerrada"),
+    "cerrada": (),
+    "descartada": (),
+}
+
+
+def validar_transicion(desde: str, hacia: str) -> None:
+    """ValueError si `desde → hacia` no es una transición válida."""
+    if hacia not in TRANSICIONES.get(desde, ()):
+        raise ValueError(f"transición de incidencia inválida: {desde} → {hacia}")
+
+
 RESULTADOS_SEGUIMIENTO = ("empeora", "igual", "mejora", "limpia")
 SEVERIDADES = ("info", "advertencia", "critica")
 TIPOS_ALERTA = ("riesgo_7d", "confirmacion", "seguimiento", "ventilacion", "descartada")

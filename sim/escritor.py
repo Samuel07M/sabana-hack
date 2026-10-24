@@ -46,6 +46,36 @@ def insertar_camas(con: sqlite3.Connection, camas: list[dict]) -> None:
         con.executemany("INSERT INTO camas VALUES (?, ?, ?, ?, ?, ?)", filas)
 
 
+SQL_INSERT = {  # tabla -> sentencia (las filas llegan en el orden de las columnas indicadas)
+    "lecturas": "INSERT INTO lecturas (corrida_id, hora, cama_id, temp_c, hr, fuente) VALUES (?,?,?,?,?,?)",
+    "riesgo": "INSERT INTO riesgo (corrida_id, dia, cama_id, enfermedad, riesgo_reglas, prob_ia_7d, nivel)"
+              " VALUES (?,?,?,?,?,?,?)",
+    "seguimientos": "INSERT INTO seguimientos (seguimiento_id, incidencia_id, corrida_id, hora, dron_id, resultado,"
+                    " plantas_afectadas, nota) VALUES (?,?,?,?,?,?,?,?)",
+    "alertas": "INSERT INTO alertas (alerta_id, corrida_id, hora, cama_id, incidencia_id, severidad, tipo, titulo,"
+               " mensaje) VALUES (?,?,?,?,?,?,?,?,?)",
+    "drones": "INSERT INTO drones (corrida_id, hora, dron_id, cama_id, estado, bateria) VALUES (?,?,?,?,?,?)",
+    "ventilacion": "INSERT INTO ventilacion (corrida_id, hora, bloque, nave, estado, motivo) VALUES (?,?,?,?,?,?)",
+    "cola_sync": "INSERT INTO cola_sync (id, corrida_id, origen, hora_generada, hora_recibida, tipo, payload)"
+                 " VALUES (?,?,?,?,?,?,?)",
+}
+SQL_INCIDENCIAS = ("INSERT OR REPLACE INTO incidencias (incidencia_id, corrida_id, cama_id, posicion, origen, estado,"
+                   " hora_creada, hora_confirmada, hora_cerrada, confianza, plantas_afectadas, verdad_infectada)"
+                   " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
+
+
+def volcar(con: sqlite3.Connection, sim) -> None:
+    """Escribe en una transacción las filas nuevas de la simulación y vacía sus buffers."""
+    with con:
+        for tabla, sql in SQL_INSERT.items():
+            if sim.buf[tabla]:
+                con.executemany(sql, sim.buf[tabla])
+                sim.buf[tabla].clear()
+        filas = sim.filas_incidencias()
+        if filas:
+            con.executemany(SQL_INCIDENCIAS, filas)
+
+
 def contar_filas(con: sqlite3.Connection) -> dict[str, int]:
     """Filas por tabla del contrato."""
     tablas = [r[0] for r in con.execute(
