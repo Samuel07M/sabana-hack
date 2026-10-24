@@ -95,7 +95,7 @@ SabanaHack/
 ├── planSantiago.md           plan de Santiago             (Santiago)
 ├── planSamuel.md             plan de Samuel               (Samuel · solo lectura)
 ├── prompts/                  prompts de Samuel            (Samuel · NO TOCAR)
-├── NOTAS.md                  notas entre los dos          (ambos)
+├── NOTAS.md                  acuerdos entre los dos       (ambos · fuente de verdad de decisiones)
 ├── requirements.txt          versiones fijadas            (ambos)
 ├── .gitignore / .gitattributes                            (ambos)
 ├── contrato/
@@ -175,7 +175,7 @@ Romper cualquiera de estos es una regresión. Si una tarea lo exige, **pregunta 
 
 1. **Sin internet en tiempo de ejecución.** Ninguna importación ni llamada de red.
 2. **Propiedad de carpetas.** Nunca escribas en `hub/` ni `dashboard/`.
-3. **Quién escribe qué en la base.** El simulador escribe `corridas`, `camas`, `lecturas`, `riesgo`, `incidencias`, `seguimientos`, `drones`, `ventilacion`, `cola_sync` y crea `alertas`. El hub/dashboard solo escribe `alertas.estado`, `alertas.accion`, `ventilacion` y la cola de sincronización. `ventilacion` y `cola_sync` las escriben los dos: el reparto exacto está pendiente (sección 13, decisiones abiertas con Samuel).
+3. **Quién escribe qué en la base** (`NOTAS.md`). El simulador escribe `corridas`, `camas`, `lecturas`, `riesgo`, `incidencias`, `seguimientos`, `drones`, `ventilacion`, `cola_sync` (con `hora_recibida = NULL`) y crea todas las `alertas`. El hub/dashboard solo escribe `alertas.estado`, `alertas.accion` y `cola_sync.hora_recibida`. **Ninguna acción del dashboard vuelve al simulador**: `run_vivo` no lee nada de la base.
 4. **El contrato (`contrato/schema.sql`) no cambia sin acuerdo de los dos.** Ni columnas, ni nombres, ni valores permitidos.
 5. **La verdad no va a la base ni al dashboard.** El estado real de cada planta se guarda en `data/verdad_<corrida>.parquet` y solo lo usan `prediccion/etiquetas.py`, `prediccion/entrenar.py` y `analisis/`. Excepción del contrato: `incidencias.verdad_infectada` (solo validación; el dashboard no lo muestra).
 6. **`prediccion/variables.py` nunca lee la verdad.** Solo lecturas medidas, incidencias **confirmadas**, ventilación y geometría.
@@ -195,7 +195,11 @@ Romper cualquiera de estos es una regresión. Si una tarea lo exige, **pregunta 
 
 ## 5. Contrato de datos
 
-### 5.1 Esquema (`contrato/schema.sql`, copia exacta de `CLAUDE.md`)
+### 5.1 Esquema
+
+**Fuente de verdad: el archivo `contrato/schema.sql`.** Léelo directamente; `sim/escritor.py` lo ejecuta tal cual. Además de lo de abajo, el archivo tiene los índices `lecturas(corrida_id, cama_id, hora)`, `riesgo(corrida_id, dia)`, `alertas(corrida_id, hora)`, y comentarios actualizados: `ventilacion.motivo` = `'auto: incidencia #N'` | `'auto: fin de apagado'`; `cola_sync.tipo` = `'lectura'` | `'inspeccion'` | `'seguimiento'`; `cola_sync.payload` = JSON con las columnas de la tabla destino.
+
+Resumen (puede quedarse atrás del archivo):
 
 ```sql
 CREATE TABLE corridas (
@@ -304,10 +308,14 @@ Transiciones válidas (cualquier otra es un error y debe lanzar `ValueError`):
 | Cama pasa a `alto` | `riesgo_7d` | `advertencia` | `B1 · Nave 2 · Cama 14: alto riesgo de Botrytis en los próximos 7 días (prob. 0.74). HR > 90 % durante 15 h.` |
 | Inspección positiva | `confirmacion` | `critica` | `Botrytis confirmada · B1 · Nave 2 · Cama 14 · posición 22. 3 plantas afectadas (confianza 0.88).` |
 | Inspección negativa | `descartada` | `info` | — |
-| Ventilación apagada | `ventilacion` | — **[decisión pendiente]** | — |
-| Revisita | `seguimiento` | — **[decisión pendiente]** | — |
+| Ventilación apagada (automática, **siempre** con alerta) | `ventilacion` | `advertencia` | — |
+| Revisita | `seguimiento` | `info` (`critica` si `empeora`) | — |
 
-Los textos de las alertas se arman en **una función** por tipo, con la ubicación en formato `B{b} · Nave {n} · Cama {c}`.
+Severidades leídas de `config/default.yaml → alertas.severidad`, nunca escritas en el código. Los textos de las alertas se arman en **una función** por tipo, con la ubicación en formato `B{b} · Nave {n} · Cama {c}`.
+
+**`cola_sync` (`NOTAS.md`, decisión 7):** en `drones_celular` y en `run_vivo`, cada lectura, inspección y seguimiento del dron se escribe en su tabla normal **y** en `cola_sync` (`origen='dron:B{n}'`, `hora_recibida=NULL`). En el escenario `drones_celular` (lote), el simulador marca `hora_recibida` en la pasada diaria del celular (`celular.ventana_hora`) y el modelo solo usa lo recibido. En `run_vivo`, `hora_recibida` lo llena el hub de Samuel.
+
+**Bases de datos (`NOTAS.md`, decisión 10):** `data/finca.db` solo tiene la corrida `demo` y una temporada `drones`. Las corridas de `analisis/validar.py` van a `data/experimentos/<corrida_id>.db`.
 
 ---
 
@@ -435,9 +443,9 @@ riesgo: {umbral_alto: 0.6, umbral_medio: 0.3}
 actual: {p_humano: 0.35, dias_ronda: 4}
 ```
 
-### 7.2 Parámetros que el plan usa pero el YAML no tiene
+### 7.2 Parámetros que el plan usa pero el YAML original no tenía
 
-Agrégalos en la Fase 1 con `# fuente: supuesto` (valor del plan cuando lo hay). **No los escribas en el código.**
+**Ya están en `config/default.yaml`** (con `# fuente: supuesto` y nombres ligeramente distintos; el archivo manda). También están `alertas.severidad` y la sección `dashboard:` (de Samuel, no la toques). Referencia:
 
 | Parámetro | Valor del plan | Sección |
 |---|---|---|
@@ -564,8 +572,8 @@ Sin volcar archivos completos, sin repetir esta guía, sin explicar código obvi
 Fecha límite: **sábado 24 de octubre, 11:30 código congelado.**
 
 ### Fase 1 · Base y contrato (22:00–23:30)
-- Crear: `.gitignore` (`data/`, `.venv/`, `__pycache__/`, `*.pyc`, `.pytest_cache/`), `.gitattributes` (`* text=auto eol=lf`), `contrato/schema.sql` (copia exacta de la sección 5.1), `config/default.yaml` (sección 7.1 + parámetros de 7.2), paquetes `sim/`, `prediccion/`, `analisis/`, `tests/` con `__init__.py`.
-- `requirements.txt`: instalar numpy, scipy, pandas, pyarrow, scikit-learn, joblib, pyyaml, matplotlib, pytest y fijar con `pip freeze > requirements.txt`.
+- **Ya hechos (no recrear):** `.gitignore`, `.gitattributes`, `contrato/schema.sql`, `config/default.yaml`, `requirements.txt`, `NOTAS.md`, `.venv`.
+- Pendiente: paquetes `sim/`, `prediccion/`, `analisis/`, `tests/` con `__init__.py`.
 - `sim/escritor.py`: crea la base desde `contrato/schema.sql`, activa WAL, llena `camas`.
 - Parámetros biológicos de Sara B. si llegan; si no, quedan como `# fuente: supuesto`.
 - **Listo cuando:** `python -m sim.run_temporada --dias 1` crea `data/finca.db` con las tablas vacías y `camas` llena.
@@ -611,8 +619,8 @@ Casos donde falla (mostrarlos): periodos secos con contagio por aire; latentes q
 
 ### Fase 6 · Demo y cierre (10:30–12:00)
 - `config/demo.yaml`: Bloque 1, foco latente en Nave 2 · Cama 14 el día 1; evento húmedo la noche del día 2; ventilación encendida en Nave 2.
-- Secuencia en ~3 min: alerta `riesgo_7d` → dron de patrulla a prioridad → inspecciona → `confirmada` → ventilación apagada → seguimiento 3 días después → `mejora`.
-- Comando para Samuel: `python -m sim.run_vivo --config config/demo.yaml --velocidad 1` (1 hora simulada por segundo).
+- Secuencia en ~3 min: alerta `riesgo_7d` → dron de patrulla a prioridad → inspecciona → `confirmada` → ventilación apagada (automática + alerta) → seguimiento 3 días después → `mejora` → paso *Sin red* (`run_vivo` escribe `cola_sync`).
+- **Entregar a las 09:30** (no al final de la fase). Comando para Samuel: `python -m sim.run_vivo --config config/demo.yaml --velocidad 1` (1 hora simulada por segundo).
 
 ### Entrega a Samuel
 - [ ] `data/finca.db` de una temporada `drones` con todas las tablas llenas.
@@ -620,19 +628,13 @@ Casos donde falla (mostrarlos): periodos secos con contagio por aire; latentes q
 - [ ] Escenario `demo` con la secuencia completa en < 3 min.
 - [ ] Gráficas en `data/resultados/`.
 
-**Decisiones abiertas con Samuel (`planSamuel.md`, Fase 0):** afectan al simulador y **no se implementan hasta que estén escritas en `NOTAS.md`**. Propuestas de Samuel:
-
-| # | Tema | Propuesta de Samuel | Impacto en `sim/` |
-|---|---|---|---|
-| 1 | Quién escribe `ventilacion` | Simulador = apagado automático; dashboard = cambios manuales; `motivo` distingue (`auto: incidencia #12` / `manual: agrónomo`) | Formato de `motivo` |
-| 2 | ¿Ventilación automática o sugerida? | Sugerida con botón *Apagar 48 h / Mantener* | `run_vivo` debe **leer** `ventilacion` cada hora y obedecerla |
-| 3 | Quién escribe `cola_sync` | Simulador escribe con `hora_recibida = NULL`; el hub la llena | `drones_celular` y `run_vivo` escriben `cola_sync` |
-| 4 | Quién crea `alertas` | El simulador | Ya es así en esta guía |
-| 5 | Valores de `alertas.accion` | Tabla por tipo, en `config/default.yaml` | Solo `apagar_48h` vuelve al simulador |
-| 6 | Modo sin red en la demo | Interruptor *Sin red* + botón *Pasa el celular* | `run_vivo` escribe `cola_sync` también |
-| 7 | Formato de `cola_sync` | `tipo ∈ {lectura, inspeccion, seguimiento}`; `payload` = JSON con las columnas de la tabla destino | Serializar así |
-| 9 | Dashboard lee directo | Sí, con `hub/db.py` en solo lectura | WAL obligatorio |
-| — | Índices | Pide `lecturas(corrida_id, cama_id, hora)`, `riesgo(corrida_id, dia)`, `alertas(corrida_id, hora)` | Cambio al contrato, acordado |
+**Acuerdos con Samuel: `NOTAS.md` (fuente de verdad).** Lo que afecta al simulador:
+- Ventilación **automática en todos los modos**, siempre con alerta `ventilacion`. `run_vivo` no lee la base.
+- `cola_sync` escrita por el simulador en `drones_celular` y `run_vivo` (sección 5.3).
+- Severidades en `config/default.yaml → alertas.severidad`.
+- Corridas de validación en `data/experimentos/`, no en `finca.db`.
+- Entregas: **23:30** `finca.db` con `camas` · **03:30** `finca.db` parcial sin drones · **08:00** temporada `drones` completa · **09:30** `run_vivo` + `demo.yaml` · **10:30** gráficas.
+- La demo termina con el paso *Sin red*: `demo.yaml` hace que `run_vivo` escriba `cola_sync`.
 
 **Otros huecos:** las banderas `run_temporada --dias` y `run_vivo --velocidad` aparecen en el plan pero no en la lista de comandos de `CLAUDE.md`: son obligatorias.
 

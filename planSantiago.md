@@ -108,6 +108,8 @@ Cada día a las 06:00 el simulador calcula `riesgo_reglas` y `prob_ia_7d` por ca
 
 ## Descanso (03:30–06:30)
 
+Antes de parar: entregar a Samuel un `data/finca.db` **parcial** (clima, lecturas, riesgo, alertas; sin drones). Acordado en `NOTAS.md`.
+
 ---
 
 ## Fase 4 · Drones de cable y seguimiento (06:30–08:00) · `sim/drones.py`
@@ -169,8 +171,8 @@ Un dron por bloque. Estados: `patrulla → prioridad → inspeccionando → carg
 ## Fase 6 · Demo y cierre (10:30–12:00)
 
 1. **Escenario de demo** `config/demo.yaml`: Bloque 1, foco latente sembrado en Nave 2 · Cama 14 el día 1; evento húmedo la noche del día 2; ventilación encendida en la Nave 2.
-   Secuencia esperada en ~3 minutos de demo: alerta de riesgo a 7 días → el dron cambia de patrulla a prioridad → inspecciona → confirmada → ventilación apagada → seguimiento automático 3 días después → `mejora`.
-2. Entregar a Samuel el comando `python -m sim.run_vivo --config config/demo.yaml --velocidad 1` (1 hora simulada por segundo) y verificar con él que el dashboard lo muestra.
+   Secuencia esperada en ~3 minutos de demo: alerta de riesgo a 7 días → el dron cambia de patrulla a prioridad → inspecciona → confirmada → ventilación apagada (automática, con alerta) → seguimiento automático 3 días después → `mejora` → modo *Sin red* (`run_vivo` escribe `cola_sync`; Samuel muestra *Pasa el celular*).
+2. **A las 09:30** (acordado en `NOTAS.md`, adelantar este punto) entregar a Samuel el comando `python -m sim.run_vivo --config config/demo.yaml --velocidad 1` (1 hora simulada por segundo) y verificar con él que el dashboard lo muestra.
 3. Slides de evidencia e IA con Sara D. Mensajes:
    - “Avisamos X días antes de que la enfermedad se vea.”
    - “La IA acierta más que las reglas, sobre todo en camas de borde que el sensor central no ve.”

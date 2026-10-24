@@ -10,7 +10,7 @@ Flujo lineal (es el corazón de la propuesta):
 
 1. **Predicción:** modelo que estima el riesgo de infección de cada cama a 7 días con temperatura, humedad, cambios de humedad y plantas infectadas cercanas.
 2. **Detección:** **un dron de cable por bloque** con cámara 360 que baja entre las plantas y sensores de temperatura y humedad. Patrulla todas las camas en rutina y visita primero las de mayor riesgo.
-3. **Seguimiento:** el dron registra **automáticamente** cada hallazgo y cada revisita. Si la nave tiene ventilación, se sugiere apagarla cuando hay una incidencia confirmada (las esporas viajan con el aire).
+3. **Seguimiento:** el dron registra **automáticamente** cada hallazgo y cada revisita. Si la nave tiene ventilación, el sistema la apaga automáticamente 48 h cuando hay una incidencia confirmada (las esporas viajan con el aire) y siempre avisa con una alerta `ventilacion`.
 
 **Sin internet (supuesto por defecto):**
 - Nivel 1: hub local en la finca con red propia (wifi o radio, sin internet). Alertas en tiempo real.
@@ -47,7 +47,9 @@ Plan de Santiago: `planSantiago.md`. Plan de Samuel: `planSamuel.md`. Guía de i
 
 ## Contrato de datos (`contrato/schema.sql`)
 
-Es la frontera entre el simulador y el dashboard. El simulador **escribe**; el hub y el dashboard **leen** (y escriben solo `alertas.estado`, `alertas.accion`, `ventilacion` y la cola de sincronización).
+Es la frontera entre el simulador y el dashboard. El simulador **escribe** (incluidas `alertas`, `ventilacion` y `cola_sync`); el hub y el dashboard **leen** y escriben solo `alertas.estado`, `alertas.accion` y `cola_sync.hora_recibida`. Decisiones de detalle en `NOTAS.md`.
+
+**La fuente de verdad es el archivo `contrato/schema.sql`** (incluye además índices y comentarios con los valores permitidos). Este resumen puede quedarse atrás:
 
 ```sql
 CREATE TABLE corridas (
