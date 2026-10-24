@@ -14,6 +14,7 @@ Lee primero `CLAUDE.md` (contrato de datos y convenciones) y `planSantiago.md` (
 - Ubicaciones siempre como `Bloque · Nave · Cama`, nunca x/y.
 - Nada en ejecución depende de internet.
 - `incidencias.verdad_infectada` **no se muestra nunca**.
+- Trabajamos en **Windows con PowerShell**: rutas con `pathlib.Path` y archivos de texto con `encoding="utf-8"`.
 
 ---
 
@@ -30,7 +31,7 @@ Los documentos se contradicen o no definen estos puntos. **No empiezo a codifica
 | 5 | ¿Qué opciones de `accion` puede elegir el agrónomo y alguna vuelve al simulador? | El campo existe pero no tiene valores definidos. | Tabla de acciones abajo (Fase 3). Ninguna cambia el simulador salvo la de ventilación (punto 2). |
 | 6 | ¿El modo sin red (nivel 2) se muestra en la demo en vivo? La secuencia de `config/demo.yaml` no lo incluye. | `CLAUDE.md` lo pone como parte del flujo que debe funcionar de punta a punta. | Interruptor en el dashboard *Red local / Sin red*: en *Sin red* solo se ve lo que ya llegó por `cola_sync`; botón *Pasa el celular* sincroniza. Requiere que `run_vivo` también escriba `cola_sync`. |
 | 7 | Formato de `cola_sync.tipo` y `payload`. | Tengo que poder decodificarlo. | `tipo ∈ {lectura, inspeccion, seguimiento}`; `payload` = JSON con las mismas columnas de la tabla destino. |
-| 8 | `corridas.escenario` lista 4 valores, pero `planSantiago.md` usa también `actual` y `drones_sin_vent`. | Filtros y etiquetas del selector de corrida. | Añadir los dos al comentario del contrato. |
+| 8 | ~~`corridas.escenario` no incluía `actual` ni `drones_sin_vent`.~~ | **Resuelto** en `CLAUDE.md` (commit `a6a4a2d`): ya están los 6 escenarios. | — |
 | 9 | ¿El dashboard lee SQLite directo o pasa por `hub.api`? | Define si la API es imprescindible o recortable. | El dashboard lee con `hub/db.py` (directo, solo lectura). `hub.api` expone las mismas funciones por HTTP para otros dispositivos en la red local. |
 | 10 | ¿Qué pasa con la `confianza` y `plantas_afectadas` de una incidencia en `sospecha`? | Saber si se muestran vacíos. | Se muestran como “—” si son NULL. |
 
@@ -64,7 +65,7 @@ dashboard/
 ```
 
 ### 1.2 `hub/db.py`
-- Conexión de **solo lectura** para consultas: `sqlite3.connect("file:data/finca.db?mode=ro", uri=True)`.
+- Conexión de **solo lectura** para consultas: `sqlite3.connect(ruta.resolve().as_uri() + "?mode=ro", uri=True)`, con `ruta` como `pathlib.Path` (en Windows la URI debe salir de `as_uri()`, no armada a mano).
 - Conexión de escritura aparte, usada solo por `alertas.py`, `ventilacion.py` y `celular.py`, con `PRAGMA busy_timeout` para no chocar con el simulador que escribe en WAL.
 - Funciones (todas reciben `corrida_id`):
   - `corridas()`, `camas()`
@@ -90,7 +91,7 @@ dashboard/
 
 ### 1.5 Configuración
 - `.streamlit/config.toml`: `server.headless = true`, `browser.gatherUsageStats = false`, tema oscuro (las gráficas de Santiago vienen con fondo oscuro).
-- Ruta de la base por variable de entorno (`FINCA_DB`) con valor por defecto `data/finca.db`, para cambiar entre mock y real sin tocar código.
+- Ruta de la base por variable de entorno (`FINCA_DB`) con valor por defecto `data\finca.db`, para cambiar entre mock y real sin tocar código. En PowerShell: `$env:FINCA_DB = "data\mock.db"`.
 - Fijar versiones en `requirements.txt` con lo instalado (`pip freeze`), coordinado con Santiago (el archivo es compartido).
 
 **Listo cuando:** `python -m hub.mock` crea `data/mock.db` y `pytest -q` pasa.
@@ -180,7 +181,8 @@ Antes de parar: subir rama `samuel/dashboard`, dejar en `NOTAS.md` qué funciona
 
 ### 4.1 Nivel 1 (red local)
 - `python -m hub.api` escucha en la red local (no solo en `localhost`) y sirve: `/corridas`, `/riesgo`, `/alertas`, `/incidencias`, `/drones`, `/ventilacion`, `/cola`. Son las mismas funciones de `hub/db.py`.
-- El dashboard corre en el hub; se abre desde cualquier equipo de la red con la IP del hub. Probar desde un segundo equipo o celular conectado al mismo wifi **sin internet** (por ejemplo, el punto de acceso del portátil con datos apagados).
+- El dashboard corre en el hub; se abre desde cualquier equipo de la red con la IP del hub (`ipconfig`). Probar desde un segundo equipo o celular conectado al mismo wifi **sin internet** (por ejemplo, la zona con cobertura inalámbrica móvil de Windows con el portátil desconectado de internet).
+- Windows pide permiso en el firewall la primera vez que Python escucha en la red: aceptarlo para **redes privadas**, y probarlo antes de la demo, no durante.
 
 ### 4.2 Nivel 2 (sin red, celular) · `hub/celular.py`
 Según lo acordado en Fase 0 (puntos 3, 6 y 7):
