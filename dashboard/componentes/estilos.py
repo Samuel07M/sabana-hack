@@ -236,6 +236,7 @@ iframe{color-scheme:normal;background:transparent!important}[data-testid="stCust
 .st-key-top [data-testid="stHorizontalBlock"]{align-items:center}
 .st-key-boton_tema button,.st-key-campana button{width:40px;height:40px;padding:0!important;justify-content:center;border-radius:12px!important;background:var(--card)!important;border:1px solid var(--border)!important;color:var(--muted)!important;box-shadow:var(--shadow);position:relative}
 .st-key-boton_tema button p,.st-key-campana button p{display:none}
+.st-key-boton_tema button>div,.st-key-campana button>div{display:none}
 .st-key-boton_tema button:hover,.st-key-campana button:hover{color:var(--text)!important;border-color:var(--border-2)!important}
 .st-key-campana.dot button::after,.campana-dot .st-key-campana button::after{content:"";position:absolute;top:8px;right:9px;width:8px;height:8px;border-radius:50%;background:var(--crit);box-shadow:0 0 0 2px var(--card)}
 [class*="st-key-chip_"] button{padding:3px 10px!important;border-radius:999px!important;font-size:12px!important;font-weight:600;border:0!important;background:color-mix(in srgb,var(--adv) 13%,transparent)!important;color:color-mix(in srgb,var(--adv) 88%,var(--text))!important}
