@@ -7,5 +7,5 @@ _componente = components.declare_component("mapa3d", path=str(Path(__file__).res
 
 
 def mapa3d(datos: dict, key: str = "mapa3d") -> dict | None:
-    """Pinta el mapa con los datos del bloque; devuelve {'cama', 't'} de la última cama clicada."""
+    """Pinta el mapa con los datos del bloque; devuelve {'cama', 't'} de la última cama clicada o {'bloque', 't'}."""
     return _componente(datos=datos, key=key, default=None)

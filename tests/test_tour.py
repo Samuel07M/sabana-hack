@@ -101,7 +101,7 @@ def test_bateria_en_porcentaje():
 
 def test_selector_de_bloque(finca_db):
     at = _app(corrida="demo", tour="0")
-    boton = [b for b in at.button if b.key == "sg_bloque_3"]
+    boton = [b for b in at.button if b.key == "btn_bcard_3"]   # tarjetas de bloque (los botones del mapa 3D van por el componente)
     assert boton
     boton[0].click().run()
     assert not at.exception, at.exception

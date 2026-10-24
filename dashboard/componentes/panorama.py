@@ -1,7 +1,6 @@
 """Pantalla Panorama: KPIs, mapa 3D del bloque, robot, camas a vigilar y los 4 bloques (sin recuadros)."""
 import streamlit as st
 
-from dashboard.componentes.alertas import segmento
 from dashboard.componentes.estado import Ctx, abrir_cama
 from dashboard.componentes.graficas import sparkline
 from dashboard.componentes.mapa3d import mapa3d
@@ -69,7 +68,7 @@ def _datos_mapa(ctx: Ctx, b: int, riesgo, dia) -> dict:
         "vent": vent, "sel": st.session_state.cama, "capa": st.session_state.mapa_capa,
         "robot": None if dr.empty else {"robot_id": dr.iloc[0]["robot_id"], "cama_id": dr.iloc[0]["cama_id"],
                                        "estado": dr.iloc[0]["estado"]},
-        "titulo": f"Bloque {b}",
+        "titulo": f"Bloque {b}", "bloques": g["bloques"],
         "sub": "Esperando el primer cálculo de riesgo (06:00)" if dia is None else
                f"{g['naves_por_bloque']} naves · {g['naves_por_bloque'] * g['camas_por_nave']} camas · riesgo calculado el "
                f"{T.corta(dia * 24, ctx.ini)} a las {hc:02d}:00",
@@ -167,17 +166,6 @@ def _camas_a_vigilar(ctx: Ctx, b: int, riesgo) -> None:
             st.rerun()
 
 
-def _selector_bloque(ctx: Ctx) -> None:
-    """Botones Bloque 1…N sobre el mapa: cada bloque con sus camas, su robot y sus datos."""
-    n = ctx.cfg["geometria"]["bloques"]
-    if n < 2:
-        return
-    b = segmento("bloque", [(i, f"Bloque {i}") for i in range(1, n + 1)], st.session_state.bloque)
-    if b is not None and b != st.session_state.bloque:
-        st.session_state.bloque = b
-        st.rerun()
-
-
 def pantalla(ctx: Ctx) -> None:
     """Panorama de la finca."""
     b = st.session_state.bloque
@@ -187,12 +175,14 @@ def pantalla(ctx: Ctx) -> None:
     with st.container(key="finca"):
         izq, der = st.columns([1, 0.38], gap="large")
         with izq:
-            _selector_bloque(ctx)
             with st.container(key="tour_mapa"):
                 clic = mapa3d(_datos_mapa(ctx, b, riesgo, dia), key="mapa3d")
             if clic and clic.get("t") != st.session_state.ult_click:
                 st.session_state.ult_click = clic.get("t")
-                abrir_cama(clic["cama"])
+                if clic.get("bloque"):              # botones Bloque 1…N de la barra del mapa
+                    st.session_state.bloque, st.session_state.cama = int(clic["bloque"]), None
+                else:
+                    abrir_cama(clic["cama"])
                 st.rerun()
             _bloques(ctx, riesgo)
         with der:
