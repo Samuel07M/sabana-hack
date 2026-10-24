@@ -19,7 +19,7 @@ def pantalla(ctx: Ctx) -> None:
         for r in v[v["bloque"] == b].itertuples():
             on = r.estado == "encendida"
             motivo = "Sin cambios desde el inicio" if nulo(r.motivo) else f"{esc(r.motivo)} · {T.hace(r.hora, ctx.ahora)}"
-            cards += (f'<div class="vcard"><div><div style="font-weight:650">Nave {int(r.nave)}</div>'
+            cards += (f'<div class="vcard" data-tour="vent-B{b}-N{int(r.nave)}"><div><div style="font-weight:650">Nave {int(r.nave)}</div>'
                       f'<div class="tiny" style="color:{"var(--ok)" if on else "var(--adv)"};font-weight:600">'
                       f'{"Encendida" if on else "Apagada"}</div></div><div class="tiny muted">{motivo}</div></div>')
         bloques += f'<div><div class="sec" style="margin-top:4px">Bloque {b}</div><div class="vgrid">{cards}</div></div>'

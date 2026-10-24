@@ -65,7 +65,7 @@ def _datos_mapa(ctx: Ctx, b: int, riesgo, dia) -> dict:
         "tema": st.session_state.tema, "bloque": b, "naves": g["naves_por_bloque"], "camas_por_nave": g["camas_por_nave"],
         "mapa": cfg["dashboard"]["mapa"], "camas": camas, "tips": tips,
         "incidencias": sorted(set(db.incidencias(ctx.corrida, bloque=b, grupo="abiertas")["cama_id"])),
-        "vent": vent, "sel": st.session_state.cama,
+        "vent": vent, "sel": st.session_state.cama, "capa": st.session_state.mapa_capa,
         "robot": None if dr.empty else {"robot_id": dr.iloc[0]["robot_id"], "cama_id": dr.iloc[0]["cama_id"],
                                        "estado": dr.iloc[0]["estado"]},
         "titulo": f"Bloque {b}",
@@ -169,7 +169,8 @@ def pantalla(ctx: Ctx) -> None:
     with st.container(key="finca"):
         izq, der = st.columns([1, 0.38], gap="large")
         with izq:
-            clic = mapa3d(_datos_mapa(ctx, b, riesgo, dia), key="mapa3d")
+            with st.container(key="tour_mapa"):
+                clic = mapa3d(_datos_mapa(ctx, b, riesgo, dia), key="mapa3d")
             if clic and clic.get("t") != st.session_state.ult_click:
                 st.session_state.ult_click = clic.get("t")
                 abrir_cama(clic["cama"])
@@ -177,5 +178,6 @@ def pantalla(ctx: Ctx) -> None:
             _bloques(ctx, riesgo)
         with der:
             with st.container(key="pano_side"):
-                _tarjeta_robot(ctx, b)
+                with st.container(key="tour_robot"):
+                    _tarjeta_robot(ctx, b)
                 _camas_a_vigilar(ctx, b, riesgo)

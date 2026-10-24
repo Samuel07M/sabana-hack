@@ -270,6 +270,7 @@ function pintar(){
   document.getElementById('mapaTitulo').textContent=D.titulo;
   document.getElementById('mapaSub').textContent=D.sub;
   if(!Mapa.montado){ Mapa.cargar(D.mapa.vista_inicial); Mapa.mount(document.getElementById('mapaHost')); herramientas(); }
+  if(D.capa && Mapa.capa!==D.capa){ Mapa.capa=D.capa; herramientas(); }   /* capa pedida por el tour guiado */
   Mapa.render();
   ajustarAlto();
 }

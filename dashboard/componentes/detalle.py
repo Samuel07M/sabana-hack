@@ -60,7 +60,7 @@ def contenido(ctx: Ctx, cid: str) -> str:
         f'<div class="drawer"><div><div class="small muted">Bloque {b} · Nave {n}</div><div class="drawer-t">Cama {c}</div></div>'
         f'<div class="row" style="margin-top:12px;gap:6px">{chip("Riesgo " + LABEL["nivel"][niv].lower(), "c-" + niv)}'
         f'{chip("Cama de borde", "c-mute", False) if v["borde"] else ""}{abiertas}</div>'
-        f'<div class="gauge-card"><div class="gauge">{gauge(None if r is None else r["prob_ia_7d"], col)}'
+        f'<div class="gauge-card" data-tour="riesgo"><div class="gauge">{gauge(None if r is None else r["prob_ia_7d"], col)}'
         f'<div class="v num" style="color:{col}">{pct(r["prob_ia_7d"]) if r is not None else "—"}</div>'
         f'<div class="l">Probabilidad de infección en 7 días</div></div><div class="stack" style="gap:12px">'
         f'<div class="stat"><div class="l">{ic("leaf", 13)}Riesgo por reglas</div><div class="v">'

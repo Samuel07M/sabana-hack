@@ -45,7 +45,7 @@ def tarjeta(a: dict, ctx: Ctx, pref: str) -> None:
         lado = chip(LABEL["sev"][a["severidad"]], "c-" + a["severidad"])
     clave = f"acard_{'n' if nueva else 'v'}_{a['severidad']}_{pref}_{aid}"
     with st.container(key=clave):
-        cab = (f'<div class="acard-h">{ico_box(TIPO_IC[a["tipo"]], color, False, 18)}<div style="flex:1;min-width:0">'
+        cab = (f'<div class="acard-h" data-tour="alerta-{esc(a["tipo"])}-{esc(a["cama_id"])}">{ico_box(TIPO_IC[a["tipo"]], color, False, 18)}<div style="flex:1;min-width:0">'
                f'<div class="row" style="gap:8px;flex-wrap:nowrap">{f"<span class=newdot style=--c:{color}></span>" if nueva else ""}'
                f'<span class="tt" style="min-width:0">{esc(a["titulo"])}</span></div>'
                f'<div class="meta">{esc(LABEL["tipo"][a["tipo"]])} · {T.etiqueta(a["hora"], ctx.ini)}</div></div>'
