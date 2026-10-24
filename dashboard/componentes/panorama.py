@@ -1,6 +1,7 @@
 """Pantalla Panorama: KPIs, mapa 3D del bloque, robot, camas a vigilar y los 4 bloques (sin recuadros)."""
 import streamlit as st
 
+from dashboard.componentes.alertas import segmento
 from dashboard.componentes.estado import Ctx, abrir_cama
 from dashboard.componentes.graficas import sparkline
 from dashboard.componentes.mapa3d import mapa3d
@@ -101,6 +102,12 @@ def _bloques(ctx: Ctx, riesgo) -> None:
                 st.rerun()
 
 
+def bateria_pct(v) -> int:
+    """Batería en % (0–100): el simulador escribe fracción 0–1 y el mock porcentaje."""
+    v = float(v)
+    return int(round(max(0.0, min(100.0, v * 100 if v <= 1 else v))))
+
+
 def _tarjeta_robot(ctx: Ctx, b: int) -> None:
     """Estado, ubicación, T, HR, batería y cola de prioridad del robot del bloque."""
     dr = db.robots_actual(ctx.corrida)
@@ -122,7 +129,7 @@ def _tarjeta_robot(ctx: Ctx, b: int) -> None:
     cl = db.clima_actual(ctx.corrida, d["cama_id"])
     t = f'{f1(cl["temp_c"].iloc[0])} °C' if len(cl) else "—"
     hr = f'{f1(cl["hr"].iloc[0])} %' if len(cl) else "—"
-    bat = int(d["bateria"])
+    bat = bateria_pct(d["bateria"])
     bc = "var(--ok)" if bat > 50 else "var(--adv)" if bat > 25 else "var(--crit)"
     html(f'<div class="pano"><div class="stats2"><div class="stat"><div class="l">{ic("thermo", 13)}Temperatura</div>'
          f'<div class="v">{t}</div></div><div class="stat"><div class="l">{ic("drop", 13)}Humedad</div><div class="v">{hr}</div>'
@@ -160,6 +167,17 @@ def _camas_a_vigilar(ctx: Ctx, b: int, riesgo) -> None:
             st.rerun()
 
 
+def _selector_bloque(ctx: Ctx) -> None:
+    """Botones Bloque 1…N sobre el mapa: cada bloque con sus camas, su robot y sus datos."""
+    n = ctx.cfg["geometria"]["bloques"]
+    if n < 2:
+        return
+    b = segmento("bloque", [(i, f"Bloque {i}") for i in range(1, n + 1)], st.session_state.bloque)
+    if b is not None and b != st.session_state.bloque:
+        st.session_state.bloque = b
+        st.rerun()
+
+
 def pantalla(ctx: Ctx) -> None:
     """Panorama de la finca."""
     b = st.session_state.bloque
@@ -169,6 +187,7 @@ def pantalla(ctx: Ctx) -> None:
     with st.container(key="finca"):
         izq, der = st.columns([1, 0.38], gap="large")
         with izq:
+            _selector_bloque(ctx)
             with st.container(key="tour_mapa"):
                 clic = mapa3d(_datos_mapa(ctx, b, riesgo, dia), key="mapa3d")
             if clic and clic.get("t") != st.session_state.ult_click:
