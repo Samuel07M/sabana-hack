@@ -249,10 +249,7 @@ const Mapa = {
 
 function herramientas(){
   const m=Mapa, plano=m.elev>=89;
-  const nb=D.bloques||1, bloques=nb>1
-    ? `<div class="seg">${Array.from({length:nb},(_,i)=>i+1).map(b=>`<button class="${D.bloque===b?'on':''}" data-act="bloque" data-v="${b}" title="Ver el Bloque ${b}">B${b}</button>`).join('')}</div>`
-    : '';
-  document.getElementById('mapaTools').innerHTML=`${bloques}
+  document.getElementById('mapaTools').innerHTML=`
     <div class="seg"><button class="${m.capa==='riesgo'?'on':''}" data-act="capa" data-v="riesgo">${ic('trend',14)}Riesgo</button><button class="${m.capa==='humedad'?'on':''}" data-act="capa" data-v="humedad">${ic('drop',14)}Humedad</button></div>
     <div class="seg"><button class="${!plano?'on':''}" data-act="vista" data-v="3d">${ic('cube',14)}3D</button><button class="${plano?'on':''}" data-act="vista" data-v="plano">${ic('grid',14)}Plano</button></div>
     <button class="tbtn" data-act="zoom" data-v="-1" title="Alejar">${ic('minus',16)}</button>
@@ -268,15 +265,12 @@ function herramientas(){
   ajustarAlto();
 }
 
-let bloqueBotones=null;   /* bloque marcado en los botones de la barra */
 function pintar(){
   document.documentElement.dataset.theme=D.tema==='light'?'light':'dark';
   document.getElementById('mapaTitulo').textContent=D.titulo;
   document.getElementById('mapaSub').textContent=D.sub;
   if(!Mapa.montado){ Mapa.cargar(D.mapa.vista_inicial); Mapa.mount(document.getElementById('mapaHost')); herramientas(); }
   if(D.capa && Mapa.capa!==D.capa){ Mapa.capa=D.capa; herramientas(); }   /* capa pedida por el tour guiado */
-  else if(D.bloque!==bloqueBotones){ herramientas(); }
-  bloqueBotones=D.bloque;
   Mapa.render();
   ajustarAlto();
 }
@@ -290,7 +284,6 @@ const ACCIONES={
   vista:d=>{const v=D.mapa.vista_inicial; if(d.v==='plano')Mapa.animarA(0,90,Mapa.zoom); else Mapa.animarA(v.theta,v.elev,Mapa.zoom);},
   zoom:d=>{Mapa.animarA(Mapa.theta,Mapa.elev,clamp(Mapa.zoom*(+d.v>0?1.25:0.8),0.6,2.6));},
   resetVista:()=>{const v=D.mapa.vista_inicial;Mapa.animarA(v.theta,v.elev,v.zoom);},
-  bloque:d=>{ if(+d.v===D.bloque) return; Streamlit.valor({bloque:+d.v,t:Date.now()}); },
 };
 document.addEventListener('click',e=>{
   if(Mapa.suprimir&&e.target.closest('#m3d')){Mapa.suprimir=false;return;}

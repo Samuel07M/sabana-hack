@@ -68,7 +68,7 @@ def _datos_mapa(ctx: Ctx, b: int, riesgo, dia) -> dict:
         "vent": vent, "sel": st.session_state.cama, "capa": st.session_state.mapa_capa,
         "robot": None if dr.empty else {"robot_id": dr.iloc[0]["robot_id"], "cama_id": dr.iloc[0]["cama_id"],
                                        "estado": dr.iloc[0]["estado"]},
-        "titulo": f"Bloque {b}", "bloques": g["bloques"],
+        "titulo": f"Bloque {b}",
         "sub": "Esperando el primer cálculo de riesgo (06:00)" if dia is None else
                f"{g['naves_por_bloque']} naves · {g['naves_por_bloque'] * g['camas_por_nave']} camas · riesgo calculado el "
                f"{T.corta(dia * 24, ctx.ini)} a las {hc:02d}:00",
@@ -179,10 +179,7 @@ def pantalla(ctx: Ctx) -> None:
                 clic = mapa3d(_datos_mapa(ctx, b, riesgo, dia), key="mapa3d")
             if clic and clic.get("t") != st.session_state.ult_click:
                 st.session_state.ult_click = clic.get("t")
-                if clic.get("bloque"):              # botones Bloque 1…N de la barra del mapa
-                    st.session_state.bloque, st.session_state.cama = int(clic["bloque"]), None
-                else:
-                    abrir_cama(clic["cama"])
+                abrir_cama(clic["cama"])
                 st.rerun()
             _bloques(ctx, riesgo)
         with der:
