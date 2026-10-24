@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa 3D del bloque</title>
+<!--
+  Componente propio de Streamlit (declare_component con path): sin npm, sin build y sin CDN.
+  Reutiliza el código Mapa de dashboard/prototipo.html. Recibe los datos del bloque y devuelve la cama clicada.
+-->
+<style>
+:root{--card:#10172E;--card-2:#141C36;--card-3:#1A2342;--border:rgba(148,163,210,.10);--border-2:rgba(148,163,210,.18);
+  --text:#E8ECF6;--muted:#97A2BC;--faint:#5F6A86;--accent:#8C9EFF;--accent-soft:rgba(140,158,255,.13);--sindato:#3E4866;
+  --adv:#E5B85C;--crit:#F07178;--insp:#B79CFF;--floor:#0E1530;--plate:#151E3C;--plate-off:rgba(229,184,92,.10);--flow:#74A9FF;--lbl:#7C88A6;
+  --font:"Inter","SF Pro Text",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+:root[data-theme="light"]{--card:#FFFFFF;--card-2:#F6F8FC;--card-3:#EDF0F7;--border:rgba(30,41,80,.08);--border-2:rgba(30,41,80,.14);
+  --text:#141A2E;--muted:#5C6680;--faint:#9AA3B8;--accent:#5B6CF0;--accent-soft:rgba(91,108,240,.10);--sindato:#C3CADB;
+  --adv:#C98A1B;--crit:#E0525C;--insp:#8B5CF6;--floor:#E6EBF5;--plate:#D8DFEE;--plate-off:rgba(201,138,27,.16);--flow:#3B7DF0;--lbl:#7A849C}
+*{box-sizing:border-box}
+html,body{margin:0;background:transparent;color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0}
+.ic{flex:none;display:block}
+.spacer{flex:1}
+.tiny{font-size:11.5px}.muted{color:var(--muted)}
+.hd{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.hd h3{margin:0;font-size:15px;font-weight:650;letter-spacing:-.01em}
+.hd .sub{color:var(--muted);font-size:12.5px}
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--card-2);border:1px solid var(--border);border-radius:12px;padding:3px;gap:2px}
+.seg button{border-radius:9px;padding:6px 12px;color:var(--muted);font-weight:600;font-size:12.5px;display:inline-flex;gap:6px;align-items:center;transition:.15s}
+.seg button:hover{color:var(--text)}
+.seg button.on{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18),0 0 0 1px var(--border-2)}
+.tbtn{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--card-2);border:1px solid var(--border);color:var(--muted)}
+.tbtn:hover{color:var(--text);border-color:var(--border-2)}
+.mapa-host{position:relative;overflow:hidden}
+#m3d{display:block;width:100%;height:560px;touch-action:none;cursor:grab;user-select:none}
+#m3d.arrastrando{cursor:grabbing}
+.mapa-hint{position:absolute;left:14px;bottom:12px;display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--faint);pointer-events:none}
+.mapa-pie{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.ramp{display:flex;flex-direction:column;gap:5px;min-width:220px}
+.ramp .g{height:8px;border-radius:999px}
+.ramp .t{display:flex;justify-content:space-between;font-size:11px;color:var(--faint)}
+.lg{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+.m-base{fill:var(--floor)}
+.m-nave{fill:var(--plate);stroke:var(--border);stroke-width:1}
+.m-nave.off{fill:var(--plate-off);stroke:color-mix(in srgb,var(--adv) 40%,transparent)}
+.m-lbl{fill:var(--lbl);font-size:11px;font-weight:650;letter-spacing:.04em}
+.m-lbl.cama{font-size:9px;fill:rgba(255,255,255,.85);font-weight:700;pointer-events:none}
+.m-flujo{fill:none;stroke:var(--flow);stroke-width:1.6;stroke-dasharray:3 7;stroke-linecap:round;opacity:.75;animation:flujo 1.1s linear infinite}
+.m-flujo.off{stroke:var(--faint);opacity:.35;animation:none;stroke-dasharray:2 6}
+@keyframes flujo{to{stroke-dashoffset:-20}}
+.m-cama{cursor:pointer}
+.m-cama polygon{stroke:rgba(0,0,0,.14);stroke-width:.6;stroke-linejoin:round;transition:filter .15s}
+.m-cama .m-top{stroke:rgba(255,255,255,.22);stroke-width:.8}
+.m-cama:hover polygon{filter:brightness(1.16)}
+.m-cama.sel .m-top{stroke:var(--text);stroke-width:2}
+.m-planta{stroke:rgba(255,255,255,.28);stroke-width:1.2;stroke-linecap:round;pointer-events:none}
+.m-inc{pointer-events:none}
+.m-inc .r{fill:none;stroke:var(--crit);stroke-width:2;transform-box:fill-box;transform-origin:center;animation:onda 1.8s ease-out infinite}
+.m-inc .c{fill:var(--crit);stroke:#fff;stroke-width:1.5}
+@keyframes onda{0%{transform:scale(.6);opacity:1}100%{transform:scale(2.4);opacity:0}}
+.m-dron{pointer-events:none;transition:transform .7s cubic-bezier(.4,.1,.2,1)}
+.m-dron .m-cable{fill:var(--dc);opacity:.7;transition:transform .7s cubic-bezier(.4,.1,.2,1)}
+.m-dron .m-sombra{fill:#000;opacity:.25;transition:transform .7s cubic-bezier(.4,.1,.2,1)}
+.m-dron .halo{fill:var(--dc);opacity:.18;transform-box:fill-box;transform-origin:center;animation:halo 2.2s ease-in-out infinite}
+@keyframes halo{50%{transform:scale(1.35);opacity:.08}}
+.m-dron .brazo{stroke:var(--dc);stroke-width:2;stroke-linecap:round}
+.m-dron .rotor{fill:color-mix(in srgb,var(--dc) 30%,transparent);stroke:var(--dc);stroke-width:1.4}
+.m-dron .nucleo{fill:var(--dc);stroke:#fff;stroke-width:1.5}
+.m-dron .tag{fill:var(--text);font-size:10.5px;font-weight:700}
+.sin-anim .m-dron,.sin-anim .m-dron *{transition:none!important}
+#tip{position:fixed;z-index:70;pointer-events:none;background:var(--card);border:1px solid var(--border-2);border-radius:14px;padding:12px 14px;font-size:12.5px;box-shadow:0 18px 40px -14px rgba(0,0,0,.5);display:none;min-width:220px}
+#tip b{font-size:13.5px}
+.kv{display:grid;grid-template-columns:auto auto;gap:4px 16px;margin-top:8px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+@media (max-width:900px){#m3d{height:420px}}
+</style>
+</head>
+<body>
+<div id="raiz">
+  <div class="hd"><div><h3 id="mapaTitulo"></h3><div class="sub" id="mapaSub"></div></div><div class="spacer"></div><div class="tools" id="mapaTools"></div></div>
+  <div class="mapa-host" id="mapaHost"></div>
+  <div class="mapa-pie" id="mapaLeyenda"></div>
+</div>
+<div id="tip"></div>
+<script>
+'use strict';
+/* ---------- protocolo de componentes de Streamlit (v1), sin streamlit-component-lib ---------- */
+const Streamlit = {
+  enviar(type, extra){ window.parent.postMessage(Object.assign({isStreamlitMessage:true, type}, extra), '*'); },
+  listo(){ this.enviar('streamlit:componentReady', {apiVersion:1}); },
+  valor(v){ this.enviar('streamlit:setComponentValue', {value:v, dataType:'json'}); },
+  alto(h){ this.enviar('streamlit:setFrameHeight', {height:h}); },
+};
+
+const I={
+  trend:'<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
+  drop:'<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>',
+  cube:'<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>', minus:'<path d="M5 12h14"/>',
+  reset:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+  move:'<path d="m5 9-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/>',
+  drone:'<circle cx="12" cy="12" r="2.2"/><circle cx="5" cy="5" r="2.6"/><circle cx="19" cy="5" r="2.6"/><circle cx="5" cy="19" r="2.6"/><circle cx="19" cy="19" r="2.6"/><path d="m7 7 3.3 3.3M17 7l-3.3 3.3M7 17l3.3-3.3M17 17l-3.3-3.3"/>',
+};
+const ic=(n,s=18,w=1.8)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${I[n]||''}</svg>`;
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const RAMPA_RIESGO=[[0,[78,128,128]],[0.3,[118,182,142]],[0.45,[228,190,96]],[0.6,[240,136,88]],[1,[232,74,94]]];
+const RAMPA_HR=[[0,[206,190,148]],[0.45,[120,176,206]],[1,[82,98,226]]];
+function rampa(stops,v){
+  v=clamp(v,0,1);
+  for(let i=1;i<stops.length;i++){const [a,ca]=stops[i-1],[b,cb]=stops[i];if(v<=b){const k=(v-a)/(b-a||1);return ca.map((x,j)=>x+(cb[j]-x)*k);}}
+  return stops.at(-1)[1];
+}
+const rgb=(c,f=1)=>`rgb(${c.map(x=>Math.round(clamp(x*f,0,255))).join(',')})`;
+const gradCSS=stops=>`linear-gradient(90deg,${stops.map(([v,c])=>`${rgb(c)} ${Math.round(v*100)}%`).join(',')})`;
+function hexRgb(h){h=h.trim().replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return [(n>>16)&255,(n>>8)&255,n&255];}
+const V_DRON={patrulla:'var(--accent)',prioridad:'var(--adv)',inspeccionando:'var(--insp)',carga:'var(--faint)'};
+
+let D=null;            // datos del bloque que manda Python
+const CLAVE='mapa3d-vista';
+
+/* ---------- Mapa 3D (SVG con proyección propia, igual que el prototipo) ---------- */
+const Mapa = {
+  theta:-28, elev:50, zoom:1, capa:'riesgo', drag:null, movido:false, suprimir:false, raf:0, bloquePrevio:null, montado:false,
+  cargar(v0){
+    Object.assign(this,{theta:v0.theta,elev:v0.elev,zoom:v0.zoom});
+    try{const s=JSON.parse(sessionStorage.getItem(CLAVE)||'null'); if(s) Object.assign(this,{theta:s.theta,elev:s.elev,zoom:s.zoom,capa:s.capa||'riesgo'});}catch(e){}
+  },
+  guardar(){ try{sessionStorage.setItem(CLAVE,JSON.stringify({theta:this.theta,elev:this.elev,zoom:this.zoom,capa:this.capa}));}catch(e){} },
+  dims(){const M=D.mapa;return {W:D.camas_por_nave*(M.cama_ancho+M.sep_camas)-M.sep_camas, D:D.naves*(M.cama_largo+M.pasillo)-M.pasillo};},
+  mount(host){
+    host.innerHTML=`<svg id="m3d" viewBox="-430 -300 860 600" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa 3D del bloque">
+      <defs><filter id="fSombra" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000" flood-opacity=".22"/></filter>
+        <marker id="mkFlujo" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1 9 5 1 9" fill="none" style="stroke:var(--flow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+      <g id="mSuelo"></g><g id="mCamas" filter="url(#fSombra)"></g><g id="mMarcas"></g><g id="mEtiq"></g>
+      <g id="mDron" class="m-dron">
+        <ellipse class="m-sombra" cx="0" cy="0" rx="11" ry="4.5"/>
+        <rect class="m-cable" x="-.8" y="0" width="1.6" height="1"/>
+        <circle class="halo" r="17"/>
+        <g class="cuerpo"><line class="brazo" x1="-8" y1="-8" x2="8" y2="8"/><line class="brazo" x1="8" y1="-8" x2="-8" y2="8"/>
+          <circle class="rotor" cx="-8" cy="-8" r="4.6"/><circle class="rotor" cx="8" cy="-8" r="4.6"/><circle class="rotor" cx="-8" cy="8" r="4.6"/><circle class="rotor" cx="8" cy="8" r="4.6"/>
+          <circle class="nucleo" r="4.6"/></g>
+        <text class="tag" x="16" y="-12"></text>
+      </g>
+    </svg><div class="mapa-hint">${ic('move',13)}Arrastra para girar · rueda para acercar · clic en una cama para ver el detalle</div>`;
+    const svg=host.querySelector('svg');
+    svg.addEventListener('pointerdown',e=>{
+      if(e.button!==0) return;
+      this.drag={x:e.clientX,y:e.clientY,t:this.theta,el:this.elev}; this.movido=false;
+      const mv=ev=>{
+        const dx=ev.clientX-this.drag.x, dy=ev.clientY-this.drag.y;
+        if(!this.movido&&Math.abs(dx)+Math.abs(dy)<5) return;
+        if(!this.movido){this.movido=true;svg.classList.add('arrastrando','sin-anim');document.getElementById('tip').style.display='none';}
+        this.theta=this.drag.t+dx*0.35; this.elev=clamp(this.drag.el-dy*0.28,16,90); this.pedir();
+      };
+      const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
+        svg.classList.remove('arrastrando'); setTimeout(()=>svg.classList.remove('sin-anim'),60);
+        if(this.movido){this.suprimir=true;setTimeout(()=>this.suprimir=false,0);this.guardar();herramientas();}
+        this.drag=null;};
+      window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up);
+    });
+    svg.addEventListener('wheel',e=>{e.preventDefault();this.zoom=clamp(this.zoom*(e.deltaY<0?1.08:1/1.08),0.6,2.6);svg.classList.add('sin-anim');this.pedir();this.guardar();clearTimeout(this._wt);this._wt=setTimeout(()=>svg.classList.remove('sin-anim'),120);},{passive:false});
+    this.montado=true;
+  },
+  pedir(){ if(this.raf) return; this.raf=requestAnimationFrame(()=>{this.raf=0;this.render();}); },
+  animarA(t,e,z){
+    const norm=a=>((a%360)+540)%360-180;
+    this.theta=norm(this.theta);
+    const t0=this.theta,e0=this.elev,z0=this.zoom,ini=performance.now(), svg=document.getElementById('m3d');
+    svg?.classList.add('sin-anim');
+    const paso=now=>{const k=Math.min(1,(now-ini)/520),q=1-Math.pow(1-k,3);
+      this.theta=t0+(t-t0)*q;this.elev=e0+(e-e0)*q;this.zoom=z0+(z-z0)*q;this.render();
+      if(k<1)requestAnimationFrame(paso);else{svg?.classList.remove('sin-anim');this.guardar();herramientas();}};
+    requestAnimationFrame(paso);
+  },
+  valor(c){
+    if(this.capa==='riesgo') return c.prob==null?null:{v:c.prob,c:rampa(RAMPA_RIESGO,c.prob)};
+    if(c.hr==null) return null;
+    const v=clamp((c.hr-60)/40,0,1); return {v,c:rampa(RAMPA_HR,v)};
+  },
+  render(){
+    const svg=document.getElementById('m3d'); if(!svg||!D) return;
+    const M=D.mapa, {W,D:DD}=this.dims(), th=this.theta*Math.PI/180, el=this.elev*Math.PI/180, s=this.zoom*0.9;
+    const sn=Math.sin(th), cs=Math.cos(th), sE=Math.sin(el), cE=Math.cos(el);
+    const P=(x,y,z)=>{const cx=x-W/2,cy=y-DD/2,xr=cx*cs-cy*sn,yr=cx*sn+cy*cs;return [xr*s,(yr*sE-z*cE)*s,yr];};
+    const pts=a=>a.map(p=>{const q=P(p[0],p[1],p[2]);return q[0].toFixed(1)+','+q[1].toFixed(1);}).join(' ');
+    const b=D.bloque, incPorCama=new Set(D.incidencias);
+    const sindato=hexRgb(getComputedStyle(document.documentElement).getPropertyValue('--sindato')||'#3E4866');
+    const CW=M.cama_ancho, CD=M.cama_largo, paso=CW+M.sep_camas, pasoN=CD+M.pasillo, lados=this.elev<88.5;
+
+    let suelo=`<polygon class="m-base" points="${pts([[-52,-34,0],[W+30,-34,0],[W+30,DD+30,0],[-52,DD+30,0]])}"/>`, etiq='';
+    for(let n=1;n<=D.naves;n++){
+      const y0=(n-1)*pasoN, v=D.vent[n], off=v==='apagada';
+      suelo+=`<polygon class="m-nave ${off?'off':''}" points="${pts([[-8,y0-8,0],[W+8,y0-8,0],[W+8,y0+CD+8,0],[-8,y0+CD+8,0]])}"/>`;
+      if(v){const yv=y0+CD+18, a=P(6,yv,0), z=P(W-6,yv,0);
+        suelo+=`<line class="m-flujo ${off?'off':''}" x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${z[0].toFixed(1)}" y2="${z[1].toFixed(1)}" ${off?'':'marker-end="url(#mkFlujo)"'}/>`;}
+      const L=P(-30,y0+CD/2,0); etiq+=`<text class="m-lbl" x="${L[0].toFixed(1)}" y="${(L[1]+4).toFixed(1)}" text-anchor="middle">N${n}</text>`;
+    }
+    const cajas=[];
+    for(const cm of D.camas){
+      const x0=(cm.k-1)*paso, y0=(cm.n-1)*pasoN;
+      const val=this.valor(cm), hgt=val?4+val.v*M.altura_max:2, col=val?val.c:sindato;
+      cajas.push({id:cm.id,num:cm.num,x0,y0,x1:x0+CW,y1:y0+CD,h:hgt,col,d:P(x0+CW/2,y0+CD/2,0)[2]});
+    }
+    cajas.sort((a,c)=>a.d-c.d);
+    let g='', marcas='';
+    const caras=[[0,1,'f'],[0,-1,'b'],[1,0,'r'],[-1,0,'l']];
+    const alturaDe=new Map();
+    for(const c of cajas){
+      alturaDe.set(c.id,c);
+      let f='';
+      if(lados) for(const [nx,ny,k] of caras){
+        const nyr=nx*sn+ny*cs; if(nyr<=0.02) continue;
+        let q;
+        if(k==='f') q=[[c.x0,c.y1,0],[c.x1,c.y1,0],[c.x1,c.y1,c.h],[c.x0,c.y1,c.h]];
+        else if(k==='b') q=[[c.x1,c.y0,0],[c.x0,c.y0,0],[c.x0,c.y0,c.h],[c.x1,c.y0,c.h]];
+        else if(k==='r') q=[[c.x1,c.y1,0],[c.x1,c.y0,0],[c.x1,c.y0,c.h],[c.x1,c.y1,c.h]];
+        else q=[[c.x0,c.y0,0],[c.x0,c.y1,0],[c.x0,c.y1,c.h],[c.x0,c.y0,c.h]];
+        f+=`<polygon points="${pts(q)}" fill="${rgb(c.col,0.5+0.22*nyr+(ny!==0?0.04:0))}"/>`;
+      }
+      const xc=(c.x0+c.x1)/2, a=P(xc,c.y0+6,c.h), z=P(xc,c.y1-6,c.h);
+      f+=`<polygon class="m-top" points="${pts([[c.x0,c.y0,c.h],[c.x1,c.y0,c.h],[c.x1,c.y1,c.h],[c.x0,c.y1,c.h]])}" fill="${rgb(c.col)}"/>`;
+      f+=`<line class="m-planta" x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${z[0].toFixed(1)}" y2="${z[1].toFixed(1)}"/>`;
+      if(this.zoom>=1.45){const t=P(xc,(c.y0+c.y1)/2,c.h);f+=`<text class="m-lbl cama" x="${t[0].toFixed(1)}" y="${(t[1]+3).toFixed(1)}" text-anchor="middle">${c.num}</text>`;}
+      g+=`<g class="m-cama ${D.sel===c.id?'sel':''}" data-cama="${c.id}">${f}</g>`;
+      if(incPorCama.has(c.id)){const t=P(xc,(c.y0+c.y1)/2,c.h);marcas+=`<g class="m-inc" transform="translate(${t[0].toFixed(1)} ${(t[1]-2).toFixed(1)})"><circle class="r" r="6"/><circle class="c" r="5"/></g>`;}
+    }
+    document.getElementById('mSuelo').innerHTML=suelo;
+    document.getElementById('mCamas').innerHTML=g;
+    document.getElementById('mMarcas').innerHTML=marcas;
+    document.getElementById('mEtiq').innerHTML=etiq;
+    // dron de cable
+    const dg=document.getElementById('mDron'), dr=D.dron, c=dr&&alturaDe.get(dr.cama_id);
+    if(!c){dg.style.display='none';return;}
+    dg.style.display='';
+    if(this.bloquePrevio!==b){svg.classList.add('sin-anim');requestAnimationFrame(()=>requestAnimationFrame(()=>{if(!this.drag)svg.classList.remove('sin-anim');}));this.bloquePrevio=b;}
+    const zD=dr.estado==='inspeccionando'?c.h+14:c.h+M.altura_dron;
+    const p=P((c.x0+c.x1)/2,(c.y0+c.y1)/2,zD), L=Math.max(0,(zD-c.h)*cE*s);
+    dg.style.setProperty('--dc',V_DRON[dr.estado]);
+    dg.style.transform=`translate(${p[0].toFixed(1)}px,${p[1].toFixed(1)}px)`;
+    dg.querySelector('.m-cable').style.transform=`scaleY(${L.toFixed(1)})`;
+    dg.querySelector('.m-sombra').style.transform=`translate(0px,${L.toFixed(1)}px) scale(${(0.6+0.4*sE).toFixed(2)},${(0.5+0.5*sE).toFixed(2)})`;
+    dg.querySelector('.tag').textContent=`Dron ${dr.dron_id}`;
+  },
+};
+
+function herramientas(){
+  const m=Mapa, plano=m.elev>=89;
+  document.getElementById('mapaTools').innerHTML=`
+    <div class="seg"><button class="${m.capa==='riesgo'?'on':''}" data-act="capa" data-v="riesgo">${ic('trend',14)}Riesgo</button><button class="${m.capa==='humedad'?'on':''}" data-act="capa" data-v="humedad">${ic('drop',14)}Humedad</button></div>
+    <div class="seg"><button class="${!plano?'on':''}" data-act="vista" data-v="3d">${ic('cube',14)}3D</button><button class="${plano?'on':''}" data-act="vista" data-v="plano">${ic('grid',14)}Plano</button></div>
+    <button class="tbtn" data-act="zoom" data-v="-1" title="Alejar">${ic('minus',16)}</button>
+    <button class="tbtn" data-act="zoom" data-v="1" title="Acercar">${ic('plus',16)}</button>
+    <button class="tbtn" data-act="resetVista" title="Restablecer vista">${ic('reset',16)}</button>`;
+  const ramp=m.capa==='riesgo'
+    ? `<div class="ramp"><div class="tiny muted" style="font-weight:600">Probabilidad de infección a 7 días</div><div class="g" style="background:${gradCSS(RAMPA_RIESGO)}"></div><div class="t"><span>0 %</span><span>30 %</span><span>60 %</span><span>100 %</span></div></div>`
+    : `<div class="ramp"><div class="tiny muted" style="font-weight:600">Humedad relativa (última lectura)</div><div class="g" style="background:${gradCSS(RAMPA_HR)}"></div><div class="t"><span>60 %</span><span>80 %</span><span>90 %</span><span>100 %</span></div></div>`;
+  document.getElementById('mapaLeyenda').innerHTML=`${ramp}<div class="spacer"></div>
+    <span class="lg"><span style="color:var(--accent)">${ic('drone',16)}</span>Dron de cable</span>
+    <span class="lg"><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="var(--crit)" stroke="#fff" stroke-width="1.5"/></svg>Incidencia abierta</span>
+    <span class="lg"><svg width="26" height="6"><line x1="1" y1="3" x2="25" y2="3" stroke="var(--flow)" stroke-width="2" stroke-dasharray="3 4" stroke-linecap="round"/></svg>Flujo de ventilación</span>`;
+  ajustarAlto();
+}
+
+function pintar(){
+  document.documentElement.dataset.theme=D.tema==='light'?'light':'dark';
+  document.getElementById('mapaTitulo').textContent=D.titulo;
+  document.getElementById('mapaSub').textContent=D.sub;
+  if(!Mapa.montado){ Mapa.cargar(D.mapa.vista_inicial); Mapa.mount(document.getElementById('mapaHost')); herramientas(); }
+  Mapa.render();
+  ajustarAlto();
+}
+
+let ultimoAlto=0;
+function ajustarAlto(){ const h=Math.ceil(document.getElementById('raiz').getBoundingClientRect().height)+2; if(h!==ultimoAlto){ultimoAlto=h;Streamlit.alto(h);} }
+
+/* ---------- interacción ---------- */
+const ACCIONES={
+  capa:d=>{Mapa.capa=d.v;Mapa.guardar();herramientas();Mapa.render();},
+  vista:d=>{const v=D.mapa.vista_inicial; if(d.v==='plano')Mapa.animarA(0,90,Mapa.zoom); else Mapa.animarA(v.theta,v.elev,Mapa.zoom);},
+  zoom:d=>{Mapa.animarA(Mapa.theta,Mapa.elev,clamp(Mapa.zoom*(+d.v>0?1.25:0.8),0.6,2.6));},
+  resetVista:()=>{const v=D.mapa.vista_inicial;Mapa.animarA(v.theta,v.elev,v.zoom);},
+};
+document.addEventListener('click',e=>{
+  if(Mapa.suprimir&&e.target.closest('#m3d')){Mapa.suprimir=false;return;}
+  const cama=e.target.closest('[data-cama]');
+  if(cama){ D.sel=cama.dataset.cama; Mapa.render(); Streamlit.valor({cama:cama.dataset.cama,t:Date.now()}); return; }
+  const el=e.target.closest('[data-act]'); if(!el) return;
+  const f=ACCIONES[el.dataset.act]; if(f) f(el.dataset);
+});
+const tip=document.getElementById('tip');
+document.addEventListener('mouseover',e=>{
+  if(Mapa.drag&&Mapa.movido) return;
+  const c=e.target.closest('[data-cama]'); if(!c||!D){tip.style.display='none';return;}
+  const t=(D.tips||{})[c.dataset.cama]; if(!t){tip.style.display='none';return;}
+  tip.innerHTML=`<div class="tiny muted">Bloque ${D.bloque}</div><b>${esc(t.nombre)}</b><div class="kv">
+    <span>Riesgo 7 días</span><span style="color:${t.color||'inherit'}">${esc(t.riesgo)}</span>
+    <span>Horas de mojado (72 h)</span><span>${esc(t.mojado)}</span>
+    <span>Clima</span><span>${esc(t.clima)}</span>
+    <span>Medición</span><span>${esc(t.medicion)}</span></div>`;
+  tip.style.display='block';
+});
+document.addEventListener('mousemove',e=>{if(tip.style.display==='block'){const x=Math.min(e.clientX+16,innerWidth-250);tip.style.left=Math.max(4,x)+'px';tip.style.top=Math.min(e.clientY+16,innerHeight-150)+'px';}});
+document.addEventListener('mouseleave',()=>{tip.style.display='none';});
+window.addEventListener('resize',ajustarAlto);
+
+window.addEventListener('message',e=>{
+  const m=e.data; if(!m||m.type!=='streamlit:render') return;
+  D=(m.args||{}).datos; if(!D) return;
+  pintar();
+});
+Streamlit.listo();
+</script>
+</body>
+</html>
