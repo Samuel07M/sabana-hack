@@ -1,4 +1,4 @@
-"""CSS del prototipo (dashboard/prototipo.html) adaptado a Streamlit, con tema claro y oscuro."""
+"""CSS del prototipo HTML (retirado) adaptado a Streamlit, con tema claro y oscuro."""
 from dashboard.componentes.ui import css_icono, estilo
 
 TEMAS = {

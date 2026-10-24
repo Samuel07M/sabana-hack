@@ -49,5 +49,5 @@ def test_ninguna_consulta_la_devuelve(finca_db):
 
 def test_el_dashboard_no_la_nombra():
     for p in (RAIZ / "dashboard").rglob("*"):
-        if p.suffix in (".py", ".html", ".js", ".css") and p.name != "prototipo.html":
+        if p.suffix in (".py", ".html", ".js", ".css"):
             assert "verdad" not in p.read_text(encoding="utf-8"), p

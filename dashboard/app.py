@@ -1,4 +1,4 @@
-"""Dashboard de Atalaya (Streamlit): migración de dashboard/prototipo.html.
+"""Dashboard de Atalaya (Streamlit): migración del prototipo HTML (retirado).
 
     $env:FINCA_DB = "data\\mock.db"; streamlit run dashboard/app.py
     Corrida por URL: ?corrida=demo | temporada-7 | celular-12

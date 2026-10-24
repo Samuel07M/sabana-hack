@@ -1,4 +1,4 @@
-"""Datos de prueba que cumplen contrato/schema.sql: port de FuenteLocal de dashboard/prototipo.html.
+"""Datos de prueba que cumplen contrato/schema.sql: port de FuenteLocal del prototipo HTML (retirado).
 
     python -m hub.mock                          # las tres corridas completas → data/mock.db
     python -m hub.mock --vivo --corrida demo    # una hora simulada por segundo desde la hora 8

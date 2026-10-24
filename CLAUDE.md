@@ -43,8 +43,6 @@ Toda ubicación se expresa como **Bloque · Nave · Cama**, igual que en la finc
 
 **Regla:** no edites carpetas del otro sin avisar. Si necesitas algo del otro lado, propón el cambio en `contrato/` o deja una nota en `NOTAS.md`.
 
-Plan de Santiago: `planSantiago.md`. Plan de Samuel: `planSamuel.md`. Guía de implementación detallada (lado de Santiago): `MASTER_CODING_GUIDE.md`.
-
 ## Contrato de datos (`contrato/schema.sql`)
 
 Es la frontera entre el simulador y el dashboard. El simulador **escribe** (incluidas `alertas`, `ventilacion` y `cola_sync`); el hub y el dashboard **leen** y escriben solo `alertas.estado`, `alertas.accion` y `cola_sync.hora_recibida`. Decisiones de detalle en `NOTAS.md`.
@@ -160,7 +158,6 @@ python -m prediccion.entrenar                                  # entrena el mode
 python -m sim.calibracion                                      # β_cama (r = 0,2/día) y β_vec (cama contigua 5,5 %) con las metas del PDF
 python -m analisis.validar --semillas 30                       # escenarios × semillas → data/resultados/*.parquet y resumen.csv
 python -m analisis.graficas                                    # las 6 gráficas PNG → data/resultados/
-python -m hub.api                                              # API local (Samuel)
 streamlit run dashboard/app.py                                 # dashboard local (Samuel)
 pytest -q
 ```
