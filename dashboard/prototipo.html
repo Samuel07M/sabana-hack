@@ -1,0 +1,1615 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Berry Good Idea · Monitoreo</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='12' cy='18' r='9' fill='%235B6CF0'/%3E%3Ccircle cx='21' cy='13' r='8' fill='%238B5CF6'/%3E%3C/svg%3E">
+<!--
+  Berry Good Idea · Dashboard (Sabana Hack 2026)
+  - Un solo archivo, sin internet, sin librerías externas.
+  - Capas:
+      1. CONFIG          → config/default.yaml + config/dashboard.yaml
+      2. util            → ubicación / tiempo / rng
+      3. DB              → mismas tablas y columnas de contrato/schema.sql
+      4. FUENTE DE DATOS → reemplazable: hoy genera las filas localmente; en producción lo reemplaza hub/api (data/finca.db)
+      5. Hub             → consultas y escrituras permitidas. La UI SOLO habla con el Hub.
+      6. UI              → componentes de solo lectura sobre el Hub.
+  - Selección de corrida sin UI: ?corrida=demo | temporada-7 | celular-12
+-->
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#0A0F1E;
+  --bg-grad:radial-gradient(1100px 620px at 85% -15%,rgba(124,140,255,.12),transparent 60%),radial-gradient(900px 520px at -10% 115%,rgba(183,148,246,.08),transparent 60%);
+  --side:#0C1224; --card:#10172E; --card-2:#141C36; --card-3:#1A2342; --hover:rgba(148,163,210,.06);
+  --border:rgba(148,163,210,.10); --border-2:rgba(148,163,210,.18);
+  --text:#E8ECF6; --muted:#97A2BC; --faint:#5F6A86;
+  --accent:#8C9EFF; --accent-2:#B79CFF; --accent-soft:rgba(140,158,255,.13);
+  --bajo:#5FBF95; --medio:#E5B85C; --alto:#F07178; --sindato:#3E4866;
+  --info:#74A9FF; --adv:#E5B85C; --crit:#F07178; --ok:#5FBF95; --insp:#B79CFF;
+  --floor:#0E1530; --plate:#151E3C; --plate-off:rgba(229,184,92,.10); --flow:#74A9FF; --lbl:#7C88A6;
+  --shadow:0 1px 0 rgba(255,255,255,.03) inset,0 14px 34px -18px rgba(0,0,0,.6);
+  --r:18px; --r-sm:12px;
+  --font:"Inter","SF Pro Text",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#F3F5FA;
+  --bg-grad:radial-gradient(1100px 620px at 85% -15%,rgba(91,108,240,.09),transparent 60%),radial-gradient(900px 520px at -10% 115%,rgba(139,92,246,.06),transparent 60%);
+  --side:#FFFFFF; --card:#FFFFFF; --card-2:#F6F8FC; --card-3:#EDF0F7; --hover:rgba(30,41,80,.035);
+  --border:rgba(30,41,80,.08); --border-2:rgba(30,41,80,.14);
+  --text:#141A2E; --muted:#5C6680; --faint:#9AA3B8;
+  --accent:#5B6CF0; --accent-2:#8B5CF6; --accent-soft:rgba(91,108,240,.10);
+  --bajo:#2E9E6E; --medio:#C98A1B; --alto:#E0525C; --sindato:#C3CADB;
+  --info:#3B7DF0; --adv:#C98A1B; --crit:#E0525C; --ok:#2E9E6E; --insp:#8B5CF6;
+  --floor:#E6EBF5; --plate:#D8DFEE; --plate-off:rgba(201,138,27,.16); --flow:#3B7DF0; --lbl:#7A849C;
+  --shadow:0 1px 2px rgba(20,26,46,.04),0 14px 34px -20px rgba(20,26,46,.22);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);background-image:var(--bg-grad);background-attachment:fixed;color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0}
+select{font:inherit;color:inherit}
+.ic{flex:none;display:block}
+.muted{color:var(--muted)} .faint{color:var(--faint)} .small{font-size:12.5px} .tiny{font-size:11.5px}
+.spacer{flex:1}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.between{justify-content:space-between}
+.stack{display:flex;flex-direction:column;gap:18px;min-width:0}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- layout ---------- */
+.app{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:0;height:100vh;padding:24px 16px 18px;border-right:1px solid var(--border);
+  background:color-mix(in srgb,var(--side) 82%,transparent);backdrop-filter:blur(16px);display:flex;flex-direction:column;gap:26px;z-index:30}
+.brand{display:flex;align-items:center;gap:12px;padding:0 8px}
+.brand .name{font-weight:700;font-size:15.5px;letter-spacing:-.01em}
+.brand .sub{color:var(--muted);font-size:12px}
+.nav{display:flex;flex-direction:column;gap:4px}
+.nav-t{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:0 12px 6px;font-weight:600}
+.nav button{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:var(--muted);font-weight:550;width:100%;text-align:left;transition:background .15s,color .15s}
+.nav button:hover{background:var(--hover);color:var(--text)}
+.nav button.on{background:var(--accent-soft);color:var(--text)}
+.nav button.on .ic{color:var(--accent)}
+.nav .cnt{margin-left:auto;min-width:22px;height:20px;padding:0 7px;border-radius:999px;font-size:11.5px;font-weight:650;display:inline-grid;place-items:center;background:var(--card-3);color:var(--muted)}
+.nav .cnt.hot{background:color-mix(in srgb,var(--crit) 20%,transparent);color:var(--crit)}
+.side-foot{margin-top:auto;padding:14px;border-radius:16px;background:var(--card-2);border:1px solid var(--border)}
+.main{min-width:0;padding:0 32px 48px}
+.top{display:flex;align-items:center;gap:18px;padding:26px 0 22px;flex-wrap:wrap}
+.top h1{font-size:23px;margin:0;font-weight:700;letter-spacing:-.02em}
+.top .sub{color:var(--muted);font-size:13px;margin-top:2px}
+.clock{display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:14px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow)}
+.clock .t{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.clock .d{font-size:12px;color:var(--muted);line-height:1.3}
+.ibtn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--card);border:1px solid var(--border);color:var(--muted);position:relative;transition:.15s;box-shadow:var(--shadow)}
+.ibtn:hover{color:var(--text);border-color:var(--border-2)}
+.ibtn .dot{position:absolute;top:8px;right:9px;width:8px;height:8px;border-radius:50%;background:var(--crit);box-shadow:0 0 0 2px var(--card)}
+
+/* ---------- elementos ---------- */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);min-width:0}
+.card-hd{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.card h3{margin:0;font-size:15px;font-weight:650;letter-spacing:-.01em}
+.card .sub{color:var(--muted);font-size:12.5px}
+.sec{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:650;margin:18px 0 10px}
+.ico-box{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none;color:var(--c,var(--accent));background:color-mix(in srgb,var(--c,var(--accent)) 14%,transparent)}
+.ico-box.sm{width:32px;height:32px;border-radius:10px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;
+  background:color-mix(in srgb,var(--c,var(--muted)) 13%,transparent);color:color-mix(in srgb,var(--c,var(--muted)) 88%,var(--text))}
+.chip .d{width:6px;height:6px;border-radius:50%;background:var(--c,var(--muted))}
+.chip.pulse .d{animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 60%,transparent)}70%{box-shadow:0 0 0 6px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.c-bajo{--c:var(--bajo)} .c-medio{--c:var(--medio)} .c-alto{--c:var(--alto)} .c-sindato{--c:var(--faint)}
+.c-info{--c:var(--info)} .c-advertencia{--c:var(--adv)} .c-critica{--c:var(--crit)}
+.c-ok{--c:var(--ok)} .c-primary{--c:var(--accent)} .c-insp{--c:var(--insp)} .c-mute{--c:var(--faint)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:11px;background:var(--card-2);border:1px solid var(--border);font-weight:600;font-size:13px;transition:.15s}
+.btn:hover{border-color:var(--border-2);background:var(--card-3)}
+.btn.primary{background:var(--accent);border-color:transparent;color:#fff}
+:root:not([data-theme="light"]) .btn.primary{color:#0B1020}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--text);background:var(--hover)}
+.seg{display:inline-flex;background:var(--card-2);border:1px solid var(--border);border-radius:12px;padding:3px;gap:2px}
+.seg button{border-radius:9px;padding:6px 12px;color:var(--muted);font-weight:600;font-size:12.5px;display:inline-flex;gap:6px;align-items:center;transition:.15s}
+.seg button:hover{color:var(--text)}
+.seg button.on{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18),0 0 0 1px var(--border-2)}
+.tbtn{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--card-2);border:1px solid var(--border);color:var(--muted)}
+.tbtn:hover{color:var(--text);border-color:var(--border-2)}
+.bar{height:6px;background:var(--card-3);border-radius:999px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--c,var(--accent));border-radius:999px;transition:width .4s}
+.sel-in{background:var(--card-2);border:1px solid var(--border);border-radius:11px;padding:7px 10px;font-size:13px;font-weight:550}
+.empty{text-align:center;padding:46px 20px;color:var(--muted)}
+.empty .ico-box{margin:0 auto 12px;width:48px;height:48px;border-radius:14px}
+
+/* ---------- KPIs ---------- */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:18px}
+.kpi{display:flex;flex-direction:column;gap:12px;padding:18px 20px}
+.kpi .v{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}
+.kpi .l{color:var(--muted);font-size:12.5px;font-weight:550}
+.kpi .d{font-size:12px;color:var(--faint)}
+.kpi .d b{color:var(--text);font-weight:600}
+.kpi .spark{height:30px;width:96px}
+
+/* ---------- panorama ---------- */
+.finca{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px}
+.bloques{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.bcard{text-align:left;padding:14px;border-radius:16px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);transition:.18s;display:flex;flex-direction:column;gap:10px}
+.bcard:hover{border-color:var(--border-2);transform:translateY(-1px)}
+.bcard.on{border-color:color-mix(in srgb,var(--accent) 60%,transparent);box-shadow:0 0 0 3px var(--accent-soft),var(--shadow)}
+.bcard b{font-size:13.5px}
+.bcard .alarm{width:8px;height:8px;border-radius:50%;background:var(--crit);box-shadow:0 0 0 3px color-mix(in srgb,var(--crit) 22%,transparent)}
+.mini{display:grid;grid-template-columns:repeat(12,1fr);gap:2px}
+.mini i{height:7px;border-radius:2px;display:block}
+.bmeta{display:flex;justify-content:space-between;gap:8px;white-space:nowrap;font-size:11.5px;color:var(--muted)}
+.mapa-card{padding:20px 20px 16px}
+/* Panorama sin recuadros: todo sobre el fondo base, alrededor del mapa */
+.pano .card,.pano .bcard{background:transparent;border:0;box-shadow:none;border-radius:0;backdrop-filter:none}
+.pano .card{padding:0}
+.pano .kpis{gap:32px;margin-bottom:26px}
+.pano .kpi{padding:0}
+.pano .finca{gap:40px;align-items:start}
+.pano .mapa-col{gap:0}
+.pano .mapa-hd{margin-bottom:10px}
+.pano .mapa-host{background:transparent;border:0;border-radius:0}
+.pano .mapa-pie{margin-top:8px}
+.pano .bloques{margin-top:28px;gap:28px}
+.pano .bcard{padding:12px 0 0;border-top:2px solid var(--border)}
+.pano .bcard:hover{transform:none;border-top-color:var(--border-2)}
+.pano .bcard.on{border-top-color:var(--accent);box-shadow:none}
+.pano #fincaSide{gap:36px;padding-top:4px}
+.pano .dron-pos{background:transparent;border:0;padding:0;margin-bottom:16px}
+.pano .stat{background:transparent;border:0;padding:0}
+.pano .rank-i{padding:9px 0}
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mapa-host{position:relative;border-radius:16px;overflow:hidden;background:radial-gradient(120% 90% at 50% 0%,color-mix(in srgb,var(--accent) 6%,var(--card-2)),var(--card-2));border:1px solid var(--border)}
+#m3d{display:block;width:100%;height:560px;touch-action:none;cursor:grab;user-select:none}
+#m3d.arrastrando{cursor:grabbing}
+.mapa-hint{position:absolute;left:14px;bottom:12px;display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--faint);pointer-events:none}
+.mapa-pie{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.ramp{display:flex;flex-direction:column;gap:5px;min-width:220px}
+.ramp .g{height:8px;border-radius:999px}
+.ramp .t{display:flex;justify-content:space-between;font-size:11px;color:var(--faint)}
+.lg{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+.m-base{fill:var(--floor)}
+.m-nave{fill:var(--plate);stroke:var(--border);stroke-width:1}
+.m-nave.off{fill:var(--plate-off);stroke:color-mix(in srgb,var(--adv) 40%,transparent)}
+.m-lbl{fill:var(--lbl);font-size:11px;font-weight:650;letter-spacing:.04em}
+.m-lbl.cama{font-size:9px;fill:rgba(255,255,255,.85);font-weight:700;pointer-events:none}
+.m-flujo{fill:none;stroke:var(--flow);stroke-width:1.6;stroke-dasharray:3 7;stroke-linecap:round;opacity:.75;animation:flujo 1.1s linear infinite}
+.m-flujo.off{stroke:var(--faint);opacity:.35;animation:none;stroke-dasharray:2 6}
+@keyframes flujo{to{stroke-dashoffset:-20}}
+.m-cama{cursor:pointer}
+.m-cama polygon{stroke:rgba(0,0,0,.14);stroke-width:.6;stroke-linejoin:round;transition:filter .15s}
+.m-cama .m-top{stroke:rgba(255,255,255,.22);stroke-width:.8}
+.m-cama:hover polygon{filter:brightness(1.16)}
+.m-cama.sel .m-top{stroke:var(--text);stroke-width:2}
+.m-planta{stroke:rgba(255,255,255,.28);stroke-width:1.2;stroke-linecap:round;pointer-events:none}
+.m-inc{pointer-events:none}
+.m-inc .r{fill:none;stroke:var(--crit);stroke-width:2;transform-box:fill-box;transform-origin:center;animation:onda 1.8s ease-out infinite}
+.m-inc .c{fill:var(--crit);stroke:#fff;stroke-width:1.5}
+@keyframes onda{0%{transform:scale(.6);opacity:1}100%{transform:scale(2.4);opacity:0}}
+.m-dron{pointer-events:none;transition:transform .7s cubic-bezier(.4,.1,.2,1)}
+.m-dron .m-cable{fill:var(--dc);opacity:.7;transition:transform .7s cubic-bezier(.4,.1,.2,1)}
+.m-dron .m-sombra{fill:#000;opacity:.25;transition:transform .7s cubic-bezier(.4,.1,.2,1)}
+.m-dron .halo{fill:var(--dc);opacity:.18;transform-box:fill-box;transform-origin:center;animation:halo 2.2s ease-in-out infinite}
+@keyframes halo{50%{transform:scale(1.35);opacity:.08}}
+.m-dron .brazo{stroke:var(--dc);stroke-width:2;stroke-linecap:round}
+.m-dron .rotor{fill:color-mix(in srgb,var(--dc) 30%,transparent);stroke:var(--dc);stroke-width:1.4}
+.m-dron .nucleo{fill:var(--dc);stroke:#fff;stroke-width:1.5}
+.m-dron .tag{fill:var(--text);font-size:10.5px;font-weight:700}
+.sin-anim .m-dron,.sin-anim .m-dron *{transition:none!important}
+
+.dron-pos{padding:14px;border-radius:14px;background:var(--card-2);border:1px solid var(--border);margin-bottom:12px}
+.dron-pos .v{font-size:21px;font-weight:700;letter-spacing:-.01em}
+.stats2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat{padding:12px;border-radius:14px;background:var(--card-2);border:1px solid var(--border)}
+.stat .l{font-size:11.5px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.stat .v{font-size:18px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+.rank{display:flex;flex-direction:column;gap:4px}
+.rank-i{display:grid;grid-template-columns:minmax(0,1fr) 70px 44px;gap:12px;align-items:center;padding:9px 10px;border-radius:11px;cursor:pointer;transition:background .15s}
+.rank-i:hover{background:var(--hover)}
+.rank-i .p{text-align:right;font-weight:650;font-size:12.5px;font-variant-numeric:tabular-nums}
+.feed{display:flex;flex-direction:column}
+.feed-i{display:flex;gap:12px;padding:10px 6px;border-radius:12px;cursor:pointer;transition:background .15s}
+.feed-i:hover{background:var(--hover)}
+.feed-i .t{font-weight:600;font-size:13px;line-height:1.35}
+.feed-i .m{font-size:12px;color:var(--muted)}
+
+/* ---------- drawer ---------- */
+.scrim{position:fixed;inset:0;background:rgba(5,8,18,.38);backdrop-filter:blur(2px);z-index:45;opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:12px;right:12px;bottom:12px;width:min(560px,calc(100vw - 24px));background:var(--card);border:1px solid var(--border-2);border-radius:22px;
+  box-shadow:0 30px 80px -20px rgba(0,0,0,.55);z-index:50;transform:translateX(calc(100% + 30px));transition:transform .28s cubic-bezier(.3,.7,.2,1);overflow-y:auto}
+.drawer.open{transform:none}
+.drawer .in{padding:24px}
+.drawer h2{margin:2px 0 0;font-size:24px;letter-spacing:-.02em}
+.gauge-card{display:grid;grid-template-columns:1.25fr 1fr;gap:12px;margin-top:18px}
+.gauge{padding:16px;border-radius:16px;background:var(--card-2);border:1px solid var(--border);display:flex;flex-direction:column;align-items:center}
+.gauge .v{font-size:28px;font-weight:750;margin-top:-48px;margin-bottom:14px;letter-spacing:-.02em}
+.gauge .l{font-size:12px;color:var(--muted);text-align:center}
+.factores{display:flex;flex-direction:column;gap:8px}
+.factor{display:flex;gap:12px;align-items:center;padding:10px 12px;border-radius:13px;background:var(--card-2);border:1px solid var(--border);font-size:13px}
+.factor b{font-weight:650}
+.chart{width:100%;height:auto;display:block}
+.chart text{font-family:var(--font)}
+.leyenda{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:6px}
+.leyenda i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+
+/* ---------- timeline ---------- */
+.tl{position:relative;padding-left:22px}
+.tl::before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;background:var(--border-2);border-radius:2px}
+.tl .ev{position:relative;padding:0 0 14px}
+.tl .ev::before{content:"";position:absolute;left:-21px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--c,var(--muted));box-shadow:0 0 0 4px var(--card)}
+.tl .ev .h{font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+.tl .ev .t{font-weight:600;font-size:13px}
+
+/* ---------- alertas ---------- */
+.filtros{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:14px 16px}
+.filtros .lbl{font-size:11.5px;color:var(--faint);font-weight:650;text-transform:uppercase;letter-spacing:.06em;margin-right:4px}
+.alist{display:flex;flex-direction:column;gap:10px}
+.acard{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;transition:border-color .15s}
+.acard.nueva{border-color:color-mix(in srgb,var(--c) 35%,var(--border))}
+.acard .ah{display:flex;gap:14px;align-items:center;padding:14px 16px;cursor:pointer}
+.acard .ah:hover{background:var(--hover)}
+.acard .tt{font-weight:650;font-size:13.5px}
+.acard .meta{font-size:12px;color:var(--muted);margin-top:2px}
+.acard .ab{padding:0 16px 16px 68px}
+.acard .msg{margin:0 0 14px;font-size:13.5px;color:var(--muted);line-height:1.55}
+.acols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;align-items:start}
+.acol{display:flex;flex-direction:column;gap:12px;min-width:0}
+.acol-hd{display:flex;gap:14px;align-items:center;padding:16px 18px;border-radius:16px;background:color-mix(in srgb,var(--c) 7%,var(--card));border:1px solid color-mix(in srgb,var(--c) 22%,var(--border))}
+.acol-hd h3{margin:0;font-size:15.5px;font-weight:700;letter-spacing:-.01em}
+.acol-hd .sub{color:var(--muted);font-size:12.5px}
+.acol-n{text-align:right}
+.acol-n .v{font-size:26px;font-weight:750;line-height:1;letter-spacing:-.02em}
+.newdot{width:8px;height:8px;border-radius:50%;background:var(--c);flex:none}
+.chev{color:var(--faint);transition:transform .2s}
+.chev.open{transform:rotate(180deg)}
+
+/* ---------- incidencias ---------- */
+.pipe{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;position:relative}
+.pipe-i{display:flex;flex-direction:column;align-items:center;gap:8px;position:relative;padding:4px 6px;text-align:center}
+.pipe-i::before{content:"";position:absolute;top:21px;left:-50%;right:50%;height:2px;background:var(--border-2);z-index:0}
+.pipe-i:first-child::before{display:none}
+.pipe-i .n{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-weight:750;font-size:16px;position:relative;z-index:1;
+  background:color-mix(in srgb,var(--c) 14%,var(--card));color:var(--c);border:1px solid color-mix(in srgb,var(--c) 30%,transparent)}
+.pipe-i .l{font-size:12px;color:var(--muted);font-weight:550}
+.incs{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:18px}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);text-align:left;font-weight:650;padding:10px 10px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card)}
+td{padding:11px 10px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;font-size:13px}
+tbody tr{cursor:pointer;transition:background .12s} tbody tr:hover{background:var(--hover)} tbody tr.sel{background:var(--accent-soft)}
+.tblwrap{max-height:540px;overflow:auto;margin:0 -8px}
+
+/* ---------- ventilación / conectividad ---------- */
+.vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.vcard{padding:14px;border-radius:15px;background:var(--card-2);border:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.switch{width:44px;height:26px;border-radius:999px;background:var(--card-3);border:1px solid var(--border-2);position:relative;transition:.2s;flex:none}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:.2s}
+.switch.on{background:var(--ok);border-color:transparent}
+.switch.on::after{left:21px}
+.levels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.level{padding:18px;border-radius:16px;border:1px solid var(--border);background:var(--card-2);opacity:.6;transition:.2s}
+.level.on{opacity:1;border-color:color-mix(in srgb,var(--accent) 55%,transparent);box-shadow:0 0 0 3px var(--accent-soft)}
+.level .n{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+.level .t{font-weight:700;font-size:15px;margin:10px 0 4px}
+.hero{display:flex;gap:18px;align-items:center}
+.hero .ico-box{width:56px;height:56px;border-radius:18px}
+.hero .t{font-size:18px;font-weight:700;letter-spacing:-.01em}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.tile .v{font-size:28px;font-weight:750;letter-spacing:-.02em;margin:12px 0 2px;font-variant-numeric:tabular-nums}
+.tile .l{font-weight:600;font-size:13px}
+.tile .d{font-size:12px;color:var(--muted);margin-top:4px}
+.hbar{display:grid;grid-template-columns:120px minmax(0,1fr) 36px;gap:12px;align-items:center;font-size:12.5px;padding:5px 0}
+.hbar .bar{height:8px}
+
+/* ---------- toasts / tooltip ---------- */
+#toasts{position:fixed;right:20px;bottom:20px;z-index:60;display:flex;flex-direction:column;gap:10px;max-width:390px}
+.toast{display:flex;gap:12px;background:var(--card);border:1px solid var(--border-2);border-radius:16px;padding:14px 16px;box-shadow:0 20px 50px -18px rgba(0,0,0,.55);animation:tin .3s cubic-bezier(.3,.7,.2,1)}
+.toast .tt{font-weight:650;font-size:13.5px;margin-bottom:2px}
+@keyframes tin{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+#tip{position:fixed;z-index:70;pointer-events:none;background:var(--card);border:1px solid var(--border-2);border-radius:14px;padding:12px 14px;font-size:12.5px;box-shadow:0 18px 40px -14px rgba(0,0,0,.5);display:none;min-width:220px}
+#tip b{font-size:13.5px}
+.kv{display:grid;grid-template-columns:auto auto;gap:4px 16px;margin-top:8px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+
+@media (max-width:1280px){.finca{grid-template-columns:minmax(0,1fr)}.finca>.stack:last-child{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}}
+@media (max-width:1100px){.acols{grid-template-columns:minmax(0,1fr)}.kpis,.grid4{grid-template-columns:repeat(2,minmax(0,1fr))}.incs,.grid2{grid-template-columns:minmax(0,1fr)}.bloques{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{position:fixed;inset:auto 0 0 0;height:auto;flex-direction:row;padding:6px 8px;border-right:0;border-top:1px solid var(--border)}
+  .side .brand,.side-foot,.nav-t{display:none}
+  .nav{flex-direction:row;justify-content:space-around;width:100%}
+  .nav button{flex-direction:column;gap:3px;padding:7px 4px;font-size:10.5px;align-items:center;width:auto;flex:1}
+  .nav .cnt{display:none}
+  .main{padding:0 16px 96px}
+  #m3d{height:420px}
+  .pipe{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:14px}
+  .levels{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:560px){.kpis,.grid4{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.kpi{padding:14px}.kpi .v{font-size:24px}.kpi .spark{display:none}.clock .d{display:none}.top h1{font-size:19px}.gauge-card{grid-template-columns:1fr}#toasts{left:12px;right:12px;bottom:84px;max-width:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <svg width="36" height="36" viewBox="0 0 36 36"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6E7BFF"/><stop offset="1" stop-color="#A57BFF"/></linearGradient></defs><rect width="36" height="36" rx="11" fill="url(#lg1)"/><circle cx="14" cy="20" r="7" fill="#fff" opacity=".92"/><circle cx="22" cy="15" r="6" fill="#fff" opacity=".6"/><path d="M12.5 17.5l1.5 1 1.5-1" stroke="#6E7BFF" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+      <div><div class="name">Berry Good Idea</div><div class="sub">Monitoreo de Botrytis</div></div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot" id="sideFoot"></div>
+  </aside>
+  <div class="main">
+    <header class="top" id="top"></header>
+    <section id="vista"></section>
+  </div>
+</div>
+<div class="scrim" id="scrim" data-act="cerrar"></div>
+<aside class="drawer" id="drawer"><div class="in" id="drawerIn"></div></aside>
+<div id="toasts"></div>
+<div id="tip"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   1. CONFIG  (config/default.yaml + config/dashboard.yaml)
+   ===================================================================== */
+const CONFIG = {
+  fuente:{corrida:'demo', hora_inicial:8, horas_por_segundo:1},                  // ritmo de actualización del panel
+  corridas: [
+    {corrida_id:'demo',        modo:'vivo',      escenario:'demo',           semilla:7,  guion:true},
+    {corrida_id:'temporada-7', modo:'temporada', escenario:'drones',         semilla:7,  guion:false},
+    {corrida_id:'celular-12',  modo:'temporada', escenario:'drones_celular', semilla:12, guion:false},
+  ],
+  sim:{dias:60, inicio:'2026-11-01T00:00:00'},                                   // fuente: planSantiago.md
+  geometria:{bloques:4, naves_por_bloque:6, camas_por_nave:12, plantas_por_cama:40}, // fuente: CLAUDE.md
+  clima:{T_media:18, A_T:6, HR_media:78, A_HR:10, extra_borde_hr:4, delta_ventilacion_hr:-5,
+         eventos_humedos_por_dia:0.15, umbral_mojado_hr:90,
+         evento_horas:[6,18], evento_mag_hr:[6,12],
+         ruido_T:0.5, ruido_HR:1.5, offset_nave_T:0.4, offset_nave_HR:1.5},       // fuente: supuesto
+  enfermedad:{T_opt:18, T_ancho:6, horas_mojado_full:10, beta_vec:0.05, beta_aire:0.002, beta_0:2e-6,
+              L_aire_camas:3, latencia_dias:[7,14], sintomas_a_perdida_dias:[14,28],
+              eficacia_tratamiento:0.85, dias_proteccion:4, focos_por_temporada:[1,3]}, // fuente: planSantiago.md
+  sensor_fijo:{nave:3, cama_en_nave:6, ruido_T:0.3, ruido_HR:1.5},
+  drones:{min_por_cama:6, sens_latente:0.25, sens_sintomas:0.90, especificidad:0.98, dias_revisita:3,
+          horas_hasta_tratamiento:6, bateria_horas:6, horas_carga:1,
+          bateria_min:15, horas_inspeccion:0.2, factor_inspeccion_prioridad:2,
+          factor_fp_patrulla:0.02, prob_confirmar:0.9, confianza_confirmada:[0.75,0.95], confianza_descartada:[0.40,0.60],
+          ruido_lectura_T:0.3, ruido_lectura_HR:1.5, horas_validez_lectura:8, horas_sin_prioridad:24},
+  riesgo:{umbral_alto:0.6, umbral_medio:0.3, hora_calculo:6},                    // fuente: CLAUDE.md
+  modelo_prueba:{ventana_h:72, umbral_mojado_reglas_h:20, bonus_vecina:0.5,
+                 a0:-5.2, a_mojado:0.16, a_temp:1.5, a_borde:0.8, a_vecina:2.5, a_delta:0.04, ruido:0.35},
+  ventilacion:{naves_con_ventilacion:[2,3,5], horas_apagado:48},
+  celular:{hora_min:7, hora_max:15},
+  acciones:{
+    riesgo_7d:['inspeccion_priorizada','monitorear','ignorar'],
+    confirmacion:['tratamiento_programado','tratamiento_aplicado'],
+    seguimiento:['continuar_seguimiento','retratar'],
+    ventilacion:['apagar_48h','mantener_encendida'],
+    descartada:['entendido'],
+  },
+  guion_demo:{cama:'B1-N2-C14', hora_foco:24, posiciones_foco:[21,22,23],
+              evento:{bloque:1, ini:68, fin:82, mag:14}, dia_alerta:3, prob_min:0.74,
+              posicion:22, plantas:3, confianza:0.88,
+              seguimientos:[['mejora',1],['limpia',0],['limpia',0]]},
+  ui:{tick_ms:250, max_alertas_lista:120, horas_grafica:72, dias_riesgo:14},
+  mapa:{cama_ancho:26, cama_largo:78, sep_camas:8, pasillo:32, altura_max:48, altura_dron:112,
+        vista_inicial:{theta:-28, elev:50, zoom:1}},
+};
+const G = CONFIG.geometria;
+const CAMAS_BLOQUE = G.naves_por_bloque * G.camas_por_nave;
+
+/* =====================================================================
+   2. UTIL · UBICACIÓN · TIEMPO · ICONOS
+   ===================================================================== */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function crearRng(semilla){
+  const r = mulberry32(semilla);
+  return {
+    random:r,
+    uniform:(a,b)=>a+(b-a)*r(),
+    int:(a,b)=>a+Math.floor(r()*(b-a+1)),
+    normal:(m=0,s=1)=>{let u=0;while(u===0)u=r();return m+s*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*r());},
+    choice:arr=>arr[Math.floor(r()*arr.length)],
+  };
+}
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const f2=x=>x==null?'—':Number(x).toFixed(2);
+const f1=x=>x==null?'—':Number(x).toFixed(1);
+const pct=x=>x==null?'—':Math.round(x*100)+' %';
+const plural=(n,s,p)=>`${n} ${n===1?s:p}`;
+
+const U = {
+  camaId:(b,n,c)=>`B${b}-N${n}-C${String(c).padStart(2,'0')}`,
+  partes:id=>{const m=/^B(\d+)-N(\d+)-C(\d+)$/.exec(id);return [+m[1],+m[2],+m[3]];},
+  naveDeCama:c=>Math.floor((c-1)/G.camas_por_nave)+1,
+  legible:id=>{const [b,n,c]=U.partes(id);return `Bloque ${b} · Nave ${n} · Cama ${c}`;},
+  corto:id=>{const [b,n,c]=U.partes(id);return `B${b} · Nave ${n} · Cama ${c}`;},
+  sinBloque:id=>{const [,n,c]=U.partes(id);return `Nave ${n} · Cama ${c}`;},
+};
+
+const T0 = new Date(CONFIG.sim.inicio);
+const fecha=h=>new Date(T0.getTime()+h*3600e3);
+const Tiempo = {
+  dia:h=>Math.floor(h/24),
+  hhmm:h=>{let hh=Math.floor(h)%24, mm=Math.round((h-Math.floor(h))*60); if(mm===60){mm=0;hh=(hh+1)%24;} return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;},
+  corta:h=>fecha(h).toLocaleDateString('es-CO',{day:'numeric',month:'short'}).replace('.',''),
+  etiqueta:h=>h==null?'—':`${Tiempo.corta(h)} · ${Tiempo.hhmm(h)}`,
+  fecha:h=>{const s=fecha(h).toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});return s.charAt(0).toUpperCase()+s.slice(1);},
+  hace:(h,ahora)=>{if(h==null)return '—';const d=ahora-h;if(d<1)return 'hace menos de 1 h';if(d<48)return `hace ${Math.floor(d)} h`;return `hace ${Math.floor(d/24)} días`;},
+};
+
+const I={
+  map:'<path d="M3 6.5 9 3.5l6 3 6-3v14l-6 3-6-3-6 3z"/><path d="M9 3.5v14M15 6.5v14"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  clip:'<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
+  wind:'<path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/>',
+  wifi:'<path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><path d="M12 20h.01"/>',
+  wifiOff:'<path d="m2 2 20 20"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 13a10 10 0 0 1 5.24-2.76"/><path d="M12 20h.01"/>',
+  chart:'<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>',
+  drone:'<circle cx="12" cy="12" r="2.2"/><circle cx="5" cy="5" r="2.6"/><circle cx="19" cy="5" r="2.6"/><circle cx="5" cy="19" r="2.6"/><circle cx="19" cy="19" r="2.6"/><path d="m7 7 3.3 3.3M17 7l-3.3 3.3M7 17l3.3-3.3M17 17l-3.3-3.3"/>',
+  drop:'<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>',
+  thermo:'<path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/>',
+  alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  trend:'<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
+  activity:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  repeat:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
+  check:'<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
+  xcircle:'<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>',
+  octagon:'<path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86z"/><path d="M12 8v4M12 16h.01"/>',
+  chev:'<path d="m6 9 6 6 6-6"/>',
+  arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon:'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+  reset:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+  cube:'<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  minus:'<path d="M5 12h14"/>',
+  battery:'<rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  radio:'<path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/>',
+  phone:'<rect x="5" y="2" width="14" height="20" rx="2.5"/><path d="M12 18h.01"/>',
+  cloud:'<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+  move:'<path d="m5 9-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/>',
+  leaf:'<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
+  edge:'<rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 3"/>',
+  layers:'<path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>',
+};
+const ic=(n,s=18,w=1.8)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${I[n]||''}</svg>`;
+
+/* Rampas de color del mapa (rgb) */
+const RAMPA_RIESGO=[[0,[78,128,128]],[0.3,[118,182,142]],[0.45,[228,190,96]],[0.6,[240,136,88]],[1,[232,74,94]]];
+const RAMPA_HR=[[0,[206,190,148]],[0.45,[120,176,206]],[1,[82,98,226]]];
+function rampa(stops,v){
+  v=clamp(v,0,1);
+  for(let i=1;i<stops.length;i++){const [a,ca]=stops[i-1],[b,cb]=stops[i];if(v<=b){const k=(v-a)/(b-a||1);return ca.map((x,j)=>x+(cb[j]-x)*k);}}
+  return stops.at(-1)[1];
+}
+const rgb=(c,f=1)=>`rgb(${c.map(x=>Math.round(clamp(x*f,0,255))).join(',')})`;
+const gradCSS=stops=>`linear-gradient(90deg,${stops.map(([v,c])=>`${rgb(c)} ${Math.round(v*100)}%`).join(',')})`;
+function hexRgb(h){h=h.trim().replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return [(n>>16)&255,(n>>8)&255,n&255];}
+
+/* =====================================================================
+   3. BASE DE DATOS · mismas tablas/columnas de contrato/schema.sql
+   ===================================================================== */
+function crearDB(){
+  return {
+    corridas:[], camas:[], lecturas:[], riesgo:[], incidencias:[], seguimientos:[],
+    alertas:[], drones:[], ventilacion:[], cola_sync:[],
+    seq:{incidencia:0, seguimiento:0, alerta:0, cola:0},
+    idx:{lectCama:new Map(), sensor:new Map()},
+  };
+}
+
+/* =====================================================================
+   4. FUENTE DE DATOS (reemplazable por hub/api sobre data/finca.db)
+   ===================================================================== */
+class FuenteLocal {
+  constructor(corrida){
+    this.c = corrida; this.id = corrida.corrida_id;
+    this.rng = crearRng(corrida.semilla);
+    this.db = crearDB();
+    this.hora = 0;
+    this.red = corrida.escenario==='drones_celular' ? 'sin_red' : 'local';
+    this.autoSync = true; this.ultimaSync = null; this.horaSyncDia = new Map();
+    this.programados = []; this.refSeq = 0; this.refAInc = new Map(); this.verdadRef = new Map();
+    this.ultimoNivel = new Map(); this.dronPend = [];
+    this._geometria(); this._clima(); this._plantas(); this._ventilacionInicial(); this._drones(); this._focos();
+    this.db.corridas.push({corrida_id:this.id, modo:corrida.modo, escenario:corrida.escenario, semilla:corrida.semilla,
+      config_json:JSON.stringify(CONFIG), inicio_sim:CONFIG.sim.inicio});
+  }
+  _geometria(){
+    this.camas=[]; this.idxCama=new Map(); this.camaLocal=[];
+    for(let b=1;b<=G.bloques;b++) for(let n=1;n<=G.naves_por_bloque;n++) for(let k=1;k<=G.camas_por_nave;k++){
+      const num=(n-1)*G.camas_por_nave+k, id=U.camaId(b,n,num);
+      const row={cama_id:id,bloque:b,nave:n,cama:num,es_borde:(k===1||k===G.camas_por_nave)?1:0,
+        tiene_ventilacion:CONFIG.ventilacion.naves_con_ventilacion.includes(n)?1:0};
+      this.idxCama.set(id,this.camas.length); this.camaLocal.push(k-1); this.camas.push(row);
+      this.db.idx.lectCama.set(id,[]);
+    }
+    this.db.camas=this.camas.map(r=>({...r}));
+    this.nC=this.camas.length; this.P=G.plantas_por_cama; this.N=this.nC*this.P;
+    for(let b=1;b<=G.bloques;b++) this.db.idx.sensor.set(b,[]);
+  }
+  _clima(){
+    const c=CONFIG.clima, r=this.rng, nNav=G.bloques*G.naves_por_bloque;
+    this.offT=new Float32Array(nNav); this.offHR=new Float32Array(nNav);
+    for(let i=0;i<nNav;i++){this.offT[i]=r.normal(0,c.offset_nave_T);this.offHR[i]=r.normal(0,c.offset_nave_HR);}
+    this.eventos=new Map(); const ev=CONFIG.guion_demo.evento;
+    for(let b=1;b<=G.bloques;b++){
+      const lista=[];
+      for(let d=0;d<CONFIG.sim.dias;d++){
+        if(r.random()<c.eventos_humedos_por_dia){
+          const ini=d*24+r.int(0,23), dur=r.int(c.evento_horas[0],c.evento_horas[1]);
+          if(this.c.guion && b===ev.bloque && d<7) continue;
+          lista.push({ini,fin:ini+dur,mag:r.uniform(c.evento_mag_hr[0],c.evento_mag_hr[1])});
+        }
+      }
+      if(this.c.guion && b===ev.bloque) lista.push({ini:ev.ini,fin:ev.fin,mag:ev.mag});
+      this.eventos.set(b,lista);
+    }
+    this.wetRing=new Uint8Array(this.nC*24); this.wet24=new Uint8Array(this.nC);
+    this.Tv=new Float32Array(this.nC); this.HRv=new Float32Array(this.nC);
+  }
+  _plantas(){ this.estado=new Uint8Array(this.N); this.tSig=new Float64Array(this.N); this.pv=new Float32Array(this.N); this.pa=new Float32Array(this.nC); }
+  _ventilacionInicial(){
+    this.vent=new Map();
+    for(let b=1;b<=G.bloques;b++) for(const n of CONFIG.ventilacion.naves_con_ventilacion){
+      this.vent.set(`${b}-${n}`,{estado:'encendida',token:0});
+      this.db.ventilacion.push({corrida_id:this.id,hora:0,bloque:b,nave:n,estado:'encendida',motivo:'Estado inicial',_t:0});
+    }
+  }
+  _drones(){
+    this.drones=[];
+    for(let b=1;b<=G.bloques;b++){
+      const d={dron_id:`B${b}`,bloque:b,pos:1,dir:1,cama_id:U.camaId(b,1,1),estado:'patrulla',bateria:100,cargaHasta:0,
+        tarea:null,prioridades:[],ultInspPrio:new Map(),incs:new Map(),revisitas:[]};
+      this.drones.push(d);
+      this.db.drones.push({corrida_id:this.id,hora:0,dron_id:d.dron_id,cama_id:d.cama_id,estado:'patrulla',bateria:100,_t:0});
+    }
+  }
+  _focos(){
+    const r=this.rng, e=CONFIG.enfermedad, gd=CONFIG.guion_demo;
+    if(this.c.guion){
+      this._programar(gd.hora_foco,h=>{const ci=this.idxCama.get(gd.cama);for(const p of gd.posiciones_foco)this._infectar(ci*this.P+p-1,h);});
+    }
+    const n=r.int(e.focos_por_temporada[0],e.focos_por_temporada[1]);
+    for(let i=0;i<n;i++){
+      const b=this.c.guion?r.int(2,G.bloques):r.int(1,G.bloques), nave=r.int(1,G.naves_por_bloque);
+      const k=r.random()<0.6?r.choice([1,G.camas_por_nave]):r.int(1,G.camas_por_nave);
+      const ci=this.idxCama.get(U.camaId(b,nave,(nave-1)*G.camas_por_nave+k));
+      const pos=r.random()<0.5?r.int(1,5):r.int(1,this.P), hora=r.int(0,10*24);
+      this._programar(hora,h=>this._infectar(ci*this.P+pos-1,h));
+    }
+  }
+  _programar(hora,fn){this.programados.push({hora,fn});}
+  _infectar(i,h){ if(this.estado[i]!==0)return; const e=CONFIG.enfermedad; this.estado[i]=1; this.tSig[i]=h+this.rng.uniform(e.latencia_dias[0],e.latencia_dias[1])*24; }
+  _ventOn(b,n){return this.vent.get(`${b}-${n}`)?.estado==='encendida';}
+  _eventoHR(b,h){let s=0;for(const e of this.eventos.get(b))if(h>=e.ini&&h<e.fin)s+=e.mag;return s;}
+  _esGuion(id){return this.c.guion && id===CONFIG.guion_demo.cama;}
+
+  step(){
+    if(this.hora>=CONFIG.sim.dias*24) return false;
+    const h=this.hora;
+    this._correrProgramados(h);
+    this._climaHora(h);
+    this._sensores(h);
+    this._enfermedad(h);
+    this._dronesHora(h);
+    if(this.red==='local' && h%24===CONFIG.riesgo.hora_calculo) this.calcularRiesgo(h);
+    if(this.red==='sin_red' && this.autoSync && h%24===this._horaSync(Tiempo.dia(h))) this.sincronizar(h);
+    this.hora++;
+    return true;
+  }
+  _correrProgramados(h){
+    if(!this.programados.length) return;
+    const ya=[], resto=[]; for(const p of this.programados)(p.hora<=h?ya:resto).push(p);
+    this.programados=resto; ya.sort((a,b)=>a.hora-b.hora).forEach(p=>p.fn(h));
+  }
+  _horaSync(d){ if(!this.horaSyncDia.has(d)) this.horaSyncDia.set(d,this.rng.int(CONFIG.celular.hora_min,CONFIG.celular.hora_max)); return this.horaSyncDia.get(d); }
+  _climaHora(h){
+    const c=CONFIG.clima, r=this.rng, s=Math.sin(2*Math.PI*(h-9)/24), slot=h%24;
+    for(let i=0;i<this.nC;i++){
+      const cam=this.camas[i], kN=(cam.bloque-1)*G.naves_por_bloque+cam.nave-1;
+      const T=c.T_media+c.A_T*s+this.offT[kN]+r.normal(0,c.ruido_T);
+      let HR=c.HR_media-c.A_HR*s+this.offHR[kN]+c.extra_borde_hr*cam.es_borde+this._eventoHR(cam.bloque,h)
+        +(this._ventOn(cam.bloque,cam.nave)?c.delta_ventilacion_hr:0)+r.normal(0,c.ruido_HR);
+      HR=clamp(HR,30,100);
+      const w=HR>=c.umbral_mojado_hr?1:0;
+      this.wet24[i]+=w-this.wetRing[i*24+slot]; this.wetRing[i*24+slot]=w;
+      this.Tv[i]=T; this.HRv[i]=HR;
+    }
+  }
+  _sensores(h){
+    const sf=CONFIG.sensor_fijo, r=this.rng;
+    for(let b=1;b<=G.bloques;b++){
+      const id=U.camaId(b,sf.nave,(sf.nave-1)*G.camas_por_nave+sf.cama_en_nave), i=this.idxCama.get(id);
+      this._insertLectura({corrida_id:this.id,hora:h,cama_id:id,temp_c:+(this.Tv[i]+r.normal(0,sf.ruido_T)).toFixed(1),
+        hr:+clamp(this.HRv[i]+r.normal(0,sf.ruido_HR),30,100).toFixed(1),fuente:'sensor_fijo',_t:h});
+    }
+  }
+  _insertLectura(row){
+    this.db.lecturas.push(row);
+    if(row.fuente==='sensor_fijo') this.db.idx.sensor.get(U.partes(row.cama_id)[0])[row.hora]=row;
+    else this.db.idx.lectCama.get(row.cama_id).push(row);
+  }
+  _enfermedad(h){
+    const e=CONFIG.enfermedad, P=this.P, CN=G.camas_por_nave, est=this.estado, pv=this.pv, pa=this.pa, r=this.rng;
+    pv.fill(0); pa.fill(0);
+    for(let i=0;i<this.N;i++){
+      const st=est[i]; if(st!==1&&st!==2) continue;
+      const w=st===1?0.5:1.0, ci=(i/P)|0, p=i%P, k=this.camaLocal[ci];
+      for(const d of [-2,-1,1,2]){const q=p+d;if(q>=0&&q<P)pv[ci*P+q]+=w;}
+      for(const dk of [-1,1]){const k2=k+dk;if(k2<0||k2>=CN)continue;const cj=ci+dk;for(const d of [-1,0,1]){const q=p+d;if(q>=0&&q<P)pv[cj*P+q]+=0.4*w;}}
+      const cam=this.camas[ci];
+      if(this._ventOn(cam.bloque,cam.nave)) for(let k2=k+1;k2<CN;k2++) pa[ci+(k2-k)]+=w*Math.exp(-(k2-k)/e.L_aire_camas);
+    }
+    for(let ci=0;ci<this.nC;ci++){
+      const fT=Math.exp(-(((this.Tv[ci]-e.T_opt)/e.T_ancho)**2)), fM=Math.min(1,this.wet24[ci]/e.horas_mojado_full);
+      for(let p=0;p<P;p++){
+        const i=ci*P+p, st=est[i];
+        if(st===0){ if(fM===0)continue; const rate=(e.beta_vec*pv[i]+e.beta_aire*pa[ci]+e.beta_0)*fT*fM; if(r.random()<1-Math.exp(-rate)) this._infectar(i,h); }
+        else if(st===1&&h>=this.tSig[i]){est[i]=2;this.tSig[i]=h+r.uniform(e.sintomas_a_perdida_dias[0],e.sintomas_a_perdida_dias[1])*24;}
+        else if(st===2&&h>=this.tSig[i]){est[i]=4;}
+        else if(st===3&&h>=this.tSig[i]){est[i]=0;}
+      }
+    }
+  }
+  _contar(id,sL,sS){
+    const ci=this.idxCama.get(id), P=this.P; let real=0,det=0,pos=null;
+    for(let p=0;p<P;p++){const st=this.estado[ci*P+p];
+      if(st===1){real++;if(pos==null)pos=p+1;if(this.rng.random()<sL)det++;}
+      else if(st===2){real++;if(pos==null)pos=p+1;if(this.rng.random()<sS)det++;}}
+    return {real,det,pos};
+  }
+  _tratarPlantas(id,h){
+    const e=CONFIG.enfermedad, ci=this.idxCama.get(id), P=this.P;
+    for(let p=0;p<P;p++){const i=ci*P+p;if((this.estado[i]===1||this.estado[i]===2)&&this.rng.random()<e.eficacia_tratamiento){this.estado[i]=3;this.tSig[i]=h+e.dias_proteccion*24;}}
+  }
+  _dronesHora(h){ const tph=60/CONFIG.drones.min_por_cama; for(let k=0;k<tph;k++){const t=h+k/tph;for(const d of this.drones)this._tick(d,t,tph);} }
+  _tick(d,t,tph){
+    const D=CONFIG.drones;
+    if(d.estado==='carga'){ if(t>=d.cargaHasta-1e-9){d.bateria=100;this._mover(d,d.cama_id,'patrulla',t);} return; }
+    if(d.bateria<=D.bateria_min){ d.cargaHasta=t+D.horas_carga; this._mover(d,d.cama_id,'carga',t); return; }
+    d.bateria=Math.max(0,d.bateria-100/(D.bateria_horas*tph));
+    if(!d.tarea){
+      const iR=d.revisitas.findIndex(x=>x.hora<=t);
+      if(iR>=0){const x=d.revisitas.splice(iR,1)[0];d.tarea={tipo:'revisita',cama_id:x.cama_id,ref:x.ref,fase:'ir'};}
+      else while(d.prioridades.length){
+        const c=d.prioridades.shift(), u=d.ultInspPrio.get(c);
+        if(u!=null&&t-u<D.horas_sin_prioridad) continue;
+        if(d.incs.get(c)?.abierta) continue;
+        d.tarea={tipo:'prioridad',cama_id:c,fase:'ir'}; break;
+      }
+    }
+    if(d.tarea){
+      const ta=d.tarea;
+      if(ta.fase==='ir'){ this._mover(d,ta.cama_id,'prioridad',t); this._lecturaDron(d,ta.cama_id,t); ta.fase='insp'; ta.fin=t+D.horas_inspeccion; return; }
+      this._mover(d,ta.cama_id,'inspeccionando',t);
+      if(t+1e-9>=ta.fin){ this._ejecutarTarea(d,ta,t); d.tarea=null; }
+      return;
+    }
+    let next=d.pos+d.dir; if(next>CAMAS_BLOQUE||next<1){d.dir*=-1;next=d.pos+d.dir;}
+    d.pos=next; const id=U.camaId(d.bloque,U.naveDeCama(next),next);
+    this._mover(d,id,'patrulla',t); this._lecturaDron(d,id,t); this._inspeccionLigera(d,id,t);
+  }
+  _mover(d,cama_id,estado,t){
+    if(d.cama_id===cama_id&&d.estado===estado) return;
+    d.cama_id=cama_id; d.estado=estado;
+    const row={corrida_id:this.id,hora:+t.toFixed(2),dron_id:d.dron_id,cama_id,estado,bateria:Math.round(d.bateria),_t:this.red==='local'?t:Infinity};
+    this.db.drones.push(row); if(this.red!=='local') this.dronPend.push(row);
+  }
+  _lecturaDron(d,id,t){
+    const i=this.idxCama.get(id), D=CONFIG.drones;
+    this._emitir(d,'lectura',{hora:Math.floor(t),cama_id:id,temp_c:+(this.Tv[i]+this.rng.normal(0,D.ruido_lectura_T)).toFixed(1),
+      hr:+clamp(this.HRv[i]+this.rng.normal(0,D.ruido_lectura_HR),30,100).toFixed(1),fuente:`dron:${d.dron_id}`},t);
+  }
+  _inspeccionLigera(d,id,t){
+    const D=CONFIG.drones;
+    if(d.incs.get(id)?.abierta) return;
+    if(this._esGuion(id)) return;
+    const {det,pos}=this._contar(id,D.sens_latente,D.sens_sintomas);
+    const fp=this.rng.random()<(1-D.especificidad)*D.factor_fp_patrulla;
+    if(det>0||fp){
+      const ref=++this.refSeq, posicion=pos??this.rng.int(1,this.P);
+      this._emitir(d,'sospecha',{ref,cama_id:id,posicion,origen:'patrulla',hora:t,dron_id:d.dron_id},t);
+      d.tarea={tipo:'confirmar',cama_id:id,ref,origen:'patrulla',det,posicion,fase:'insp',fin:t+D.horas_inspeccion};
+      this._mover(d,id,'inspeccionando',t);
+    }
+  }
+  _ejecutarTarea(d,ta,t){
+    const D=CONFIG.drones, gd=CONFIG.guion_demo;
+    if(ta.tipo==='confirmar') return this._resolver(d,ta.cama_id,t,ta.ref,ta.det,ta.posicion,null);
+    if(ta.tipo==='prioridad'){
+      d.ultInspPrio.set(ta.cama_id,t);
+      const f=D.factor_inspeccion_prioridad;
+      const {det,pos}=this._contar(ta.cama_id,Math.min(1,D.sens_latente*f),D.sens_sintomas);
+      const forzar=this._esGuion(ta.cama_id)?{posicion:gd.posicion,plantas:gd.plantas,confianza:gd.confianza}:null;
+      if(det>0||forzar){
+        const ref=++this.refSeq, posicion=forzar?forzar.posicion:(pos??this.rng.int(1,this.P));
+        this._emitir(d,'sospecha',{ref,cama_id:ta.cama_id,posicion,origen:'prediccion',hora:t-D.horas_inspeccion,dron_id:d.dron_id},t);
+        this._resolver(d,ta.cama_id,t,ref,det,posicion,forzar);
+      }
+      return;
+    }
+    if(ta.tipo==='revisita'){
+      const inc=d.incs.get(ta.cama_id); if(!inc) return;
+      const {real}=this._contar(ta.cama_id,1,1);
+      let res, n=real;
+      if(n===0) res='limpia'; else if(n>inc.prev) res='empeora'; else if(n===inc.prev) res='igual'; else res='mejora';
+      if(this._esGuion(ta.cama_id)&&inc.n<gd.seguimientos.length){[res,n]=gd.seguimientos[inc.n];}
+      inc.n++;
+      this._emitir(d,'seguimiento',{ref:inc.ref,hora:t,dron_id:d.dron_id,resultado:res,plantas_afectadas:n,prev:inc.prev,nota:`Revisita automática n.º ${inc.n}`},t);
+      inc.prev=n; inc.limpias=res==='limpia'?inc.limpias+1:0;
+      if(inc.limpias>=2) inc.abierta=false;
+      else d.revisitas.push({cama_id:ta.cama_id,ref:inc.ref,hora:t+D.dias_revisita*24});
+    }
+  }
+  _resolver(d,id,t,ref,det,posicion,forzar){
+    const D=CONFIG.drones, {real}=this._contar(id,0,0);
+    const confirma=forzar?true:(real>0&&this.rng.random()<D.prob_confirmar);
+    const plantas=forzar?forzar.plantas:Math.max(det,1);
+    const confianza=forzar?forzar.confianza:+(confirma?this.rng.uniform(...D.confianza_confirmada):this.rng.uniform(...D.confianza_descartada)).toFixed(2);
+    this.verdadRef.set(ref,real>0?1:0);
+    this._emitir(d,'inspeccion',{ref,hora:t,resultado:confirma?'confirmada':'descartada',confianza,plantas_afectadas:confirma?plantas:0},t);
+    if(confirma){ d.incs.set(id,{ref,abierta:true,limpias:0,prev:plantas,n:0}); d.revisitas.push({cama_id:id,ref,hora:t+D.dias_revisita*24}); }
+  }
+  _emitir(d,tipo,payload,t){
+    if(this.red==='local') this._aplicar(tipo,payload,Math.floor(t));
+    else this.db.cola_sync.push({id:++this.db.seq.cola,corrida_id:this.id,origen:`dron:${d.dron_id}`,hora_generada:Math.floor(t),hora_recibida:null,tipo,payload:JSON.stringify(payload)});
+  }
+  _aplicar(tipo,p,ahora){
+    const db=this.db;
+    if(tipo==='lectura'){ this._insertLectura({corrida_id:this.id,...p,_t:ahora}); return; }
+    if(tipo==='sospecha'){
+      const row={incidencia_id:++db.seq.incidencia,corrida_id:this.id,cama_id:p.cama_id,posicion:p.posicion,origen:p.origen,estado:'sospecha',
+        hora_creada:Math.floor(p.hora),hora_confirmada:null,hora_cerrada:null,confianza:null,plantas_afectadas:null,verdad_infectada:null,_t:ahora};
+      db.incidencias.push(row); this.refAInc.set(p.ref,row); return;
+    }
+    if(tipo==='inspeccion'){
+      const inc=this.refAInc.get(p.ref); if(!inc) return;
+      const corto=U.corto(inc.cama_id);
+      inc.estado=p.resultado; inc.confianza=p.confianza; inc.verdad_infectada=this.verdadRef.get(p.ref)??0;
+      if(p.resultado==='confirmada'){
+        inc.hora_confirmada=Math.floor(p.hora); inc.plantas_afectadas=p.plantas_afectadas;
+        this._alerta({hora:ahora,cama_id:inc.cama_id,incidencia_id:inc.incidencia_id,severidad:'critica',tipo:'confirmacion',
+          titulo:`Botrytis confirmada · ${corto}`,
+          mensaje:`Botrytis confirmada · ${corto} · posición ${inc.posicion}. ${plural(p.plantas_afectadas,'planta afectada','plantas afectadas')} (confianza ${f2(p.confianza)}).`});
+        this._ventilacionAuto(inc,ahora);
+        this._programar(ahora+CONFIG.drones.horas_hasta_tratamiento,h=>this._tratar(inc,h));
+      } else {
+        inc.hora_cerrada=Math.floor(p.hora); inc.plantas_afectadas=0;
+        this._alerta({hora:ahora,cama_id:inc.cama_id,incidencia_id:inc.incidencia_id,severidad:'info',tipo:'descartada',
+          titulo:`Sospecha descartada · ${corto}`,
+          mensaje:`Sospecha descartada · ${corto} · posición ${inc.posicion}. La inspección de cerca no confirmó Botrytis (confianza ${f2(p.confianza)}).`});
+      }
+      return;
+    }
+    if(tipo==='seguimiento'){
+      const inc=this.refAInc.get(p.ref); if(!inc) return;
+      const prevSeg=db.seguimientos.filter(s=>s.incidencia_id===inc.incidencia_id).at(-1);
+      db.seguimientos.push({seguimiento_id:++db.seq.seguimiento,incidencia_id:inc.incidencia_id,corrida_id:this.id,hora:Math.floor(p.hora),
+        dron_id:p.dron_id,resultado:p.resultado,plantas_afectadas:p.plantas_afectadas,nota:p.nota,_t:ahora});
+      const corto=U.corto(inc.cama_id); let sev='info', extra='';
+      if(p.resultado==='empeora'){ inc.estado='confirmada'; sev='advertencia'; extra=' Se programa un nuevo tratamiento.';
+        this._programar(ahora+CONFIG.drones.horas_hasta_tratamiento,h=>this._tratar(inc,h)); }
+      else if(p.resultado==='limpia'&&prevSeg?.resultado==='limpia'){ inc.estado='cerrada'; inc.hora_cerrada=Math.floor(p.hora); extra=' Dos revisitas limpias seguidas: incidencia cerrada.'; }
+      else inc.estado='en_seguimiento';
+      inc.plantas_afectadas=p.plantas_afectadas;
+      this._alerta({hora:ahora,cama_id:inc.cama_id,incidencia_id:inc.incidencia_id,severidad:sev,tipo:'seguimiento',
+        titulo:`Seguimiento · ${LABEL.res[p.resultado]} · ${corto}`,
+        mensaje:`${p.nota} · ${corto}: ${LABEL.res[p.resultado].toLowerCase()} (${plural(p.plantas_afectadas,'planta afectada','plantas afectadas')}; antes ${p.prev}).${extra}`});
+    }
+  }
+  _tratar(inc,h){ if(inc.estado!=='confirmada') return; inc.estado='en_tratamiento'; this._tratarPlantas(inc.cama_id,h); }
+  _alerta(a){ this.db.alertas.push({alerta_id:++this.db.seq.alerta,corrida_id:this.id,...a,estado:'nueva',accion:null,_t:a.hora}); }
+  _ventilacionAuto(inc,ahora){
+    const [b,n,c]=U.partes(inc.cama_id), v=this.vent.get(`${b}-${n}`);
+    if(!v||v.estado!=='encendida') return;
+    this.cambiarVentilacion(b,n,'apagada',ahora,`Automático · incidencia #${inc.incidencia_id}`);
+    const tok=v.token;
+    this._alerta({hora:ahora,cama_id:inc.cama_id,incidencia_id:inc.incidencia_id,severidad:'advertencia',tipo:'ventilacion',
+      titulo:`Ventilación apagada · B${b} · Nave ${n}`,
+      mensaje:`Se apagó la ventilación de B${b} · Nave ${n} por ${CONFIG.ventilacion.horas_apagado} h tras confirmar Botrytis en la Cama ${c} (incidencia #${inc.incidencia_id}), para frenar el transporte de esporas por el aire. Vigile la humedad de la nave.`});
+    this._programar(ahora+CONFIG.ventilacion.horas_apagado,h=>{ if(v.token===tok&&v.estado==='apagada') this.cambiarVentilacion(b,n,'encendida',h,`Automático · fin del apagado de ${CONFIG.ventilacion.horas_apagado} h`); });
+  }
+  cambiarVentilacion(b,n,estado,hora,motivo){
+    const v=this.vent.get(`${b}-${n}`); if(!v) return;
+    v.estado=estado; v.token++;
+    this.db.ventilacion.push({corrida_id:this.id,hora:Math.floor(hora),bloque:b,nave:n,estado,motivo,_t:Math.floor(hora)});
+  }
+  variables(id,h){
+    const cam=this.camas[this.idxCama.get(id)], m=CONFIG.modelo_prueba, c=CONFIG.clima, D=CONFIG.drones;
+    const lect=this.db.idx.lectCama.get(id), sensor=this.db.idx.sensor.get(cam.bloque);
+    const HR=[], T=[]; let j=-1;
+    for(let x=h-m.ventana_h;x<h;x++){
+      if(x<0){HR.push(null);T.push(null);continue;}
+      while(j+1<lect.length&&lect[j+1].hora<=x) j++;
+      const s=sensor[x], l=j>=0&&x-lect[j].hora<=D.horas_validez_lectura?lect[j]:null, s0=l?sensor[l.hora]:null;
+      if(l&&s&&s0){HR.push(clamp(l.hr+(s.hr-s0.hr),30,100));T.push(l.temp_c+(s.temp_c-s0.temp_c));}
+      else if(l){HR.push(l.hr);T.push(l.temp_c);}
+      else{HR.push(s?s.hr:null);T.push(s?s.temp_c:null);}
+    }
+    const ult=(arr,n)=>arr.slice(-n).filter(v=>v!=null), mean=a=>a.length?a.reduce((s,v)=>s+v,0)/a.length:null;
+    const hr24=ult(HR,24), hrPrev=HR.slice(-48,-24).filter(v=>v!=null);
+    const wet72=HR.filter(v=>v!=null&&v>=c.umbral_mojado_hr).length, wet24=hr24.filter(v=>v>=c.umbral_mojado_hr).length;
+    const tMean=mean(ult(T,24)), hrMean=mean(hr24), hrMeanPrev=mean(hrPrev);
+    let dist=99;
+    for(const inc of this.db.incidencias){
+      if(inc._t>h||!['confirmada','en_tratamiento','en_seguimiento'].includes(inc.estado)) continue;
+      const [b2,n2,c2]=U.partes(inc.cama_id); if(b2===cam.bloque&&n2===cam.nave) dist=Math.min(dist,Math.abs(c2-cam.cama));
+    }
+    const ultLect=lect.length?lect[lect.length-1]:null;
+    return {wet72,wet24,tMean,hrMean,hrMax24:hr24.length?Math.max(...hr24):null,deltaHR:hrMean!=null&&hrMeanPrev!=null?hrMean-hrMeanPrev:0,
+      dist,borde:cam.es_borde,edad:ultLect?h-ultLect.hora:null,ultFuente:ultLect?ultLect.fuente:'sensor_fijo'};
+  }
+  calcularRiesgo(h){
+    const dia=Tiempo.dia(h), m=CONFIG.modelo_prueba, e=CONFIG.enfermedad, R=CONFIG.riesgo, gd=CONFIG.guion_demo;
+    this.db.riesgo=this.db.riesgo.filter(r=>r.dia!==dia);
+    const altos=new Map();
+    for(const cam of this.camas){
+      const v=this.variables(cam.cama_id,h);
+      const fT=v.tMean==null?0:Math.exp(-(((v.tMean-e.T_opt)/e.T_ancho)**2));
+      const reglas=clamp(fT*Math.min(1,v.wet72/m.umbral_mojado_reglas_h)*(1+(v.dist<=1?m.bonus_vecina:0)),0,1);
+      const cerc=v.dist<99?Math.exp(-v.dist/2):0;
+      const z=m.a0+m.a_mojado*v.wet72+m.a_temp*fT+m.a_borde*v.borde+m.a_vecina*cerc+m.a_delta*Math.max(0,v.deltaHR)+this.rng.normal(0,m.ruido);
+      let prob=1/(1+Math.exp(-z));
+      if(this._esGuion(cam.cama_id)&&dia===gd.dia_alerta) prob=Math.max(prob,gd.prob_min);
+      prob=+prob.toFixed(3);
+      const nivel=prob>=R.umbral_alto?'alto':prob>=R.umbral_medio?'medio':'bajo';
+      this.db.riesgo.push({corrida_id:this.id,dia,cama_id:cam.cama_id,enfermedad:'botrytis',riesgo_reglas:+reglas.toFixed(3),prob_ia_7d:prob,nivel,_t:h});
+      if(nivel==='alto'){
+        if(this.ultimoNivel.get(cam.cama_id)!=='alto'){
+          const corto=U.corto(cam.cama_id);
+          this._alerta({hora:h,cama_id:cam.cama_id,incidencia_id:null,severidad:'advertencia',tipo:'riesgo_7d',
+            titulo:`Riesgo alto de Botrytis · ${corto}`,
+            mensaje:`${corto}: alto riesgo de Botrytis en los próximos 7 días (prob. ${prob.toFixed(2)}). HR > 90 % durante ${v.wet72} h.`});
+        }
+        if(!altos.has(cam.bloque)) altos.set(cam.bloque,[]);
+        altos.get(cam.bloque).push({id:cam.cama_id,prob,g:this._esGuion(cam.cama_id)});
+      }
+      this.ultimoNivel.set(cam.cama_id,nivel);
+    }
+    for(const d of this.drones){
+      const l=(altos.get(d.bloque)||[]).sort((a,b)=>(b.g-a.g)||(b.prob-a.prob));
+      d.prioridades=l.map(x=>x.id);
+    }
+  }
+  sincronizar(h){
+    const pend=this.db.cola_sync.filter(r=>r.hora_recibida==null);
+    for(const r of pend){ r.hora_recibida=h; this._aplicar(r.tipo,JSON.parse(r.payload),h); }
+    for(const row of this.dronPend) row._t=h; this.dronPend=[];
+    this.ultimaSync=h;
+    this.calcularRiesgo(h);
+    return pend.length;
+  }
+}
+
+/* =====================================================================
+   5. HUB  (hub/db.py + hub/alertas.py + hub/ventilacion.py + hub/celular.py)
+      La UI solo usa estas funciones. Nunca devuelve `verdad_infectada`.
+   ===================================================================== */
+const SEV_RANK={critica:0,advertencia:1,info:2};
+const ABIERTA=e=>!['cerrada','descartada'].includes(e);
+const Hub = {
+  src:null,
+  ahora(){return this.src.hora;},
+  vis(r){return r._t<=this.src.hora;},
+  corrida(){return this.src.db.corridas[0];},
+  red(){return this.src.red;},
+  riesgoUltimo(){
+    const hoy=Tiempo.dia(this.ahora()); let dia=null; const m=new Map();
+    for(const r of this.src.db.riesgo) if(this.vis(r)&&r.dia<=hoy&&(dia==null||r.dia>dia)) dia=r.dia;
+    if(dia!=null) for(const r of this.src.db.riesgo) if(r.dia===dia&&this.vis(r)) m.set(r.cama_id,r);
+    return {dia,mapa:m};
+  },
+  riesgoDia(dia){const m=new Map();for(const r of this.src.db.riesgo)if(r.dia===dia&&this.vis(r))m.set(r.cama_id,r);return m;},
+  riesgoCama(id){return this.src.db.riesgo.filter(r=>r.cama_id===id&&this.vis(r)).sort((a,b)=>a.dia-b.dia);},
+  serieRiesgo(){
+    const m=new Map();
+    for(const r of this.src.db.riesgo){ if(!this.vis(r)) continue; if(!m.has(r.dia)) m.set(r.dia,{dia:r.dia,alto:0,medio:0,bajo:0}); m.get(r.dia)[r.nivel]++; }
+    return [...m.values()].sort((a,b)=>a.dia-b.dia);
+  },
+  variablesCama(id){return this.src.variables(id,this.ahora());},
+  lecturasCama(id,desde,hasta){
+    const [b]=U.partes(id), out=[];
+    for(const r of this.src.db.idx.lectCama.get(id)) if(r.hora>=desde&&r.hora<=hasta&&this.vis(r)) out.push(r);
+    const s=this.src.db.idx.sensor.get(b), sens=[]; for(let x=Math.max(0,desde);x<=hasta;x++) if(s[x]&&this.vis(s[x])) sens.push(s[x]);
+    return {cama:out,sensor:sens};
+  },
+  climaActual(id){
+    const h=this.ahora(), arr=this.src.db.idx.lectCama.get(id);
+    for(let i=arr.length-1;i>=0;i--){const r=arr[i]; if(this.vis(r)){ if(h-r.hora<=24) return r; break; }}
+    const s=this.src.db.idx.sensor.get(U.partes(id)[0]);
+    for(let x=h;x>=Math.max(0,h-6);x--) if(s[x]&&this.vis(s[x])) return s[x];
+    return null;
+  },
+  alertas(f={}){
+    let a=this.src.db.alertas.filter(r=>this.vis(r));
+    if(f.severidad&&f.severidad!=='todas') a=a.filter(r=>r.severidad===f.severidad);
+    if(f.estado&&f.estado!=='todas') a=a.filter(r=>r.estado===f.estado);
+    if(f.tipo&&f.tipo!=='todos') a=a.filter(r=>r.tipo===f.tipo);
+    if(f.tipos) a=a.filter(r=>f.tipos.includes(r.tipo));
+    if(f.bloque&&f.bloque!=='todos') a=a.filter(r=>r.cama_id&&U.partes(r.cama_id)[0]===+f.bloque);
+    return f.orden==='recientes'?a.sort((x,y)=>y.hora-x.hora||y.alerta_id-x.alerta_id)
+      :a.sort((x,y)=>(SEV_RANK[x.severidad]-SEV_RANK[y.severidad])||(y.hora-x.hora)||(y.alerta_id-x.alerta_id));
+  },
+  incidencias(f={}){
+    const cols=['incidencia_id','corrida_id','cama_id','posicion','origen','estado','hora_creada','hora_confirmada','hora_cerrada','confianza','plantas_afectadas'];
+    let a=this.src.db.incidencias.filter(r=>this.vis(r)).map(r=>Object.fromEntries(cols.map(k=>[k,r[k]])));
+    if(f.cama_id) a=a.filter(r=>r.cama_id===f.cama_id);
+    if(f.bloque) a=a.filter(r=>U.partes(r.cama_id)[0]===f.bloque);
+    if(f.grupo==='abiertas') a=a.filter(r=>ABIERTA(r.estado));
+    if(f.grupo==='cerradas') a=a.filter(r=>r.estado==='cerrada');
+    if(f.grupo==='descartadas') a=a.filter(r=>r.estado==='descartada');
+    return a.sort((x,y)=>y.hora_creada-x.hora_creada||y.incidencia_id-x.incidencia_id);
+  },
+  seguimientos(incId){return this.src.db.seguimientos.filter(s=>(incId==null||s.incidencia_id===incId)&&this.vis(s)).sort((a,b)=>a.hora-b.hora);},
+  dronesActual(){
+    const out=new Map(), rows=this.src.db.drones;
+    for(let i=rows.length-1;i>=0&&out.size<G.bloques;i--){const r=rows[i];if(!out.has(r.dron_id)&&this.vis(r))out.set(r.dron_id,r);}
+    return out;
+  },
+  prioridadesDron(dron_id){return (this.src.drones.find(d=>d.dron_id===dron_id)?.prioridades||[]).slice(0,6);},
+  ultimaVisita(id){const rows=this.src.db.drones;for(let i=rows.length-1;i>=0;i--){const r=rows[i];if(r.cama_id===id&&this.vis(r))return r;}return null;},
+  ventilacionActual(){const m=new Map();for(const r of this.src.db.ventilacion)if(this.vis(r))m.set(`${r.bloque}-${r.nave}`,r);return m;},
+  ventilacionHistorial(n=20){return this.src.db.ventilacion.filter(r=>this.vis(r)&&r.hora>0).slice(-n).reverse();},
+  colaPendiente(){return this.src.db.cola_sync.filter(r=>r.hora_recibida==null);},
+  ultimaSync(){return this.src.ultimaSync;},
+  lecturasRecibidas(horas){const h=this.ahora();let n=0;for(const r of this.src.db.lecturas)if(r.fuente!=='sensor_fijo'&&this.vis(r)&&r.hora>=h-horas)n++;return n;},
+  cobertura(horas=24,bloque=null){
+    const h=this.ahora(); let tot=0,ok=0;
+    for(const c of this.src.db.camas){ if(bloque&&c.bloque!==bloque) continue; tot++;
+      const arr=this.src.db.idx.lectCama.get(c.cama_id);
+      for(let i=arr.length-1;i>=0;i--){const r=arr[i]; if(this.vis(r)){ if(r.hora>=h-horas) ok++; break; }}
+    }
+    return tot?ok/tot:0;
+  },
+  metricas(){
+    const inc=this.incidencias(), al=this.alertas(), conf=inc.filter(i=>i.hora_confirmada!=null), desc=inc.filter(i=>i.estado==='descartada');
+    const resp=[];
+    for(const i of conf){
+      const a=al.filter(x=>x.tipo==='riesgo_7d'&&x.cama_id===i.cama_id&&x.hora<=i.hora_confirmada&&i.hora_confirmada-x.hora<=7*24).sort((x,y)=>x.hora-y.hora)[0];
+      if(a) resp.push(i.hora_confirmada-a.hora);
+    }
+    return {
+      respuesta:resp.length?resp.reduce((s,v)=>s+v,0)/resp.length:null, nResp:resp.length,
+      conf:conf.length, desc:desc.length, tasa:conf.length+desc.length?conf.length/(conf.length+desc.length):null,
+      cobertura:this.cobertura(24), revisitas:this.seguimientos().length,
+      porOrigen:{prediccion:inc.filter(i=>i.origen==='prediccion').length,patrulla:inc.filter(i=>i.origen==='patrulla').length},
+      porTipo:Object.fromEntries(Object.keys(LABEL.tipo).map(t=>[t,al.filter(a=>a.tipo===t).length])),
+      plantas:inc.filter(i=>ABIERTA(i.estado)).reduce((s,i)=>s+(i.plantas_afectadas||0),0),
+    };
+  },
+  // ---- escrituras permitidas por el contrato ----
+  marcarVista(id){const a=this.src.db.alertas.find(r=>r.alerta_id===id);if(a&&a.estado==='nueva')a.estado='vista';},
+  resolver(id,accion){
+    const a=this.src.db.alertas.find(r=>r.alerta_id===id);
+    if(!a||a.estado==='resuelta') return false;
+    if(!(CONFIG.acciones[a.tipo]||[]).includes(accion)) return false;
+    a.estado='resuelta'; a.accion=accion;
+    if(a.tipo==='ventilacion'&&a.cama_id){const [b,n]=U.partes(a.cama_id);
+      if(accion==='mantener_encendida') this.cambiarVentilacion(b,n,'encendida',`Manual · agrónomo (alerta #${id})`);}
+    return true;
+  },
+  cambiarVentilacion(b,n,estado,motivo='Manual · agrónomo'){this.src.cambiarVentilacion(b,n,estado,this.ahora(),motivo);},
+};
+
+/* =====================================================================
+   6. UI
+   ===================================================================== */
+const LABEL = {
+  nivel:{bajo:'Bajo',medio:'Medio',alto:'Alto',sindato:'Sin dato'},
+  sev:{info:'Info',advertencia:'Advertencia',critica:'Crítica'},
+  tipo:{riesgo_7d:'Riesgo a 7 días',confirmacion:'Confirmación',seguimiento:'Seguimiento',ventilacion:'Ventilación',descartada:'Descartada'},
+  estadoAlerta:{nueva:'Nueva',vista:'Vista',resuelta:'Resuelta'},
+  inc:{sospecha:'Sospecha',confirmada:'Confirmada',en_tratamiento:'En tratamiento',en_seguimiento:'En seguimiento',cerrada:'Cerrada',descartada:'Descartada'},
+  dron:{patrulla:'Patrulla',prioridad:'Prioridad',inspeccionando:'Inspeccionando',carga:'Cargando'},
+  res:{empeora:'Empeora',igual:'Igual',mejora:'Mejora',limpia:'Limpia'},
+  origen:{prediccion:'Predicción',patrulla:'Patrulla'},
+  accion:{inspeccion_priorizada:'Priorizar inspección',monitorear:'Monitorear',ignorar:'Ignorar',tratamiento_programado:'Tratamiento programado',
+    tratamiento_aplicado:'Tratamiento aplicado',continuar_seguimiento:'Continuar seguimiento',retratar:'Volver a tratar',
+    apagar_48h:'Mantener apagada 48 h',mantener_encendida:'Encender de nuevo',entendido:'Entendido'},
+  cola:{lectura:'Lecturas de clima',sospecha:'Sospechas',inspeccion:'Inspecciones',seguimiento:'Revisitas'},
+};
+const TIPOS_ALERTA=['riesgo_7d','confirmacion'];          // pantalla Alertas
+const TIPOS_TRAZA=['seguimiento','ventilacion','descartada']; // trazabilidad (Incidencias)
+const TIPO_IC={riesgo_7d:'trend',confirmacion:'octagon',seguimiento:'repeat',ventilacion:'wind',descartada:'xcircle'};
+const SEV_V={critica:'var(--crit)',advertencia:'var(--adv)',info:'var(--info)'};
+const C_INC={sospecha:'c-info',confirmada:'c-critica',en_tratamiento:'c-advertencia',en_seguimiento:'c-primary',cerrada:'c-ok',descartada:'c-mute'};
+const V_INC={sospecha:'var(--info)',confirmada:'var(--crit)',en_tratamiento:'var(--adv)',en_seguimiento:'var(--accent)',cerrada:'var(--ok)',descartada:'var(--faint)'};
+const C_DRON={patrulla:'c-primary',prioridad:'c-advertencia',inspeccionando:'c-insp',carga:'c-mute'};
+const V_DRON={patrulla:'var(--accent)',prioridad:'var(--adv)',inspeccionando:'var(--insp)',carga:'var(--faint)'};
+const V_RES={empeora:'var(--crit)',igual:'var(--adv)',mejora:'var(--accent)',limpia:'var(--ok)'};
+const chip=(txt,cls,dot=true,extra='')=>`<span class="chip ${cls} ${extra}">${dot?'<span class="d"></span>':''}${esc(txt)}</span>`;
+const nivelVar=n=>({bajo:'var(--bajo)',medio:'var(--medio)',alto:'var(--alto)'}[n]||'var(--faint)');
+const icoBox=(n,c,sm=false,s=18)=>`<div class="ico-box ${sm?'sm':''}" style="--c:${c}">${ic(n,s)}</div>`;
+
+const UI = {
+  tab:'finca', bloque:1, cama:null, montada:null,
+  filtros:{estado:'todas',bloque:'todos'},
+  abiertas:new Set(), trazaTipo:'todos', incFiltro:'abiertas', incSel:null, criticasVistas:new Set(), primera:true, acc:0,
+};
+let src;
+
+function iniciar(corridaId){
+  const c=CONFIG.corridas.find(x=>x.corrida_id===corridaId)||CONFIG.corridas[0];
+  src=new FuenteLocal(c); Hub.src=src;
+  while(src.hora<CONFIG.fuente.hora_inicial&&src.step());
+  render();
+}
+
+/* ---------- navegación y barra superior ---------- */
+const TABS=[['finca','map','Panorama'],['alertas','bell','Alertas'],['incidencias','clip','Incidencias'],['ventilacion','wind','Ventilación'],['analisis','chart','Análisis']];
+const TITULOS={finca:['Panorama de la finca','Riesgo a 7 días, drones e incidencias por bloque'],alertas:['Alertas','Posible enfermedad y enfermedad confirmada'],
+  incidencias:['Incidencias','Trazabilidad de hallazgos, tratamientos, revisitas y ventilación'],ventilacion:['Ventilación','Control por nave para frenar el transporte de esporas'],
+  analisis:['Análisis','Desempeño del sistema en la temporada']};
+function renderNav(){
+  const nuevas=Hub.alertas({estado:'nueva',tipos:TIPOS_ALERTA}), crit=nuevas.some(a=>a.severidad==='critica'), abiertas=Hub.incidencias({grupo:'abiertas'}).length;
+  const cnt={alertas:nuevas.length?`<span class="cnt ${crit?'hot':''}">${nuevas.length}</span>`:'',incidencias:abiertas?`<span class="cnt">${abiertas}</span>`:''};
+  document.getElementById('nav').innerHTML=`<div class="nav-t">Monitoreo</div>`+TABS.map(([k,i,t])=>`<button class="${UI.tab===k?'on':''}" data-act="tab" data-v="${k}">${ic(i,19)}<span class="lbl">${t}</span>${cnt[k]||''}</button>`).join('');
+  const red=Hub.red(), pend=Hub.colaPendiente().length;
+  document.getElementById('sideFoot').innerHTML=red==='local'
+    ? `<div class="row" style="gap:10px">${icoBox('radio','var(--ok)',true,16)}<div><div style="font-weight:650;font-size:13px">Hub local en línea</div><div class="tiny muted">Datos en tiempo real</div></div></div>`
+    : `<div class="row" style="gap:10px">${icoBox('phone','var(--adv)',true,16)}<div><div style="font-weight:650;font-size:13px">Sin red</div><div class="tiny muted">${pend} datos en los drones</div></div></div>`;
+}
+function renderTop(){
+  const h=Hub.ahora(), [t,s]=TITULOS[UI.tab], nuevas=Hub.alertas({estado:'nueva',tipos:TIPOS_ALERTA}).length;
+  const tema=document.documentElement.dataset.theme;
+  document.getElementById('top').innerHTML=`
+    <div><h1>${t}</h1><div class="sub">${s}</div></div>
+    <div class="spacer"></div>
+    <div class="clock">${ic('clock',18)}<div><div class="t">${Tiempo.hhmm(h)}</div><div class="d">${Tiempo.fecha(h)}</div></div></div>
+    <button class="ibtn" data-act="tema" title="Cambiar tema">${ic(tema==='light'?'moon':'sun',18)}</button>
+    <button class="ibtn" data-act="tab" data-v="alertas" title="Alertas">${ic('bell',18)}${nuevas?'<span class="dot"></span>':''}</button>`;
+}
+
+/* ---------- Panorama ---------- */
+function vistaFinca(){
+  return `<div class="pano">
+  <section class="kpis" id="kpis"></section>
+  <div class="finca">
+    <div class="stack mapa-col">
+      <div class="card-hd mapa-hd"><div><h3 id="mapaTitulo"></h3><div class="sub" id="mapaSub"></div></div><div class="spacer"></div><div class="tools" id="mapaTools"></div></div>
+      <div class="mapa-host" id="mapaHost"></div>
+      <div class="mapa-pie" id="mapaLeyenda"></div>
+      <div class="bloques" id="bloquesSel"></div>
+    </div>
+    <div class="stack" id="fincaSide"></div>
+  </div>
+  </div>`;
+}
+function sparkline(vals,color){
+  if(vals.length<2) return '';
+  const W=96,H=30,max=Math.max(1,...vals),X=i=>i/(vals.length-1)*W,Y=v=>H-3-(v/max)*(H-6);
+  const d=vals.map((v,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join('');
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}"><path d="${d} L${W},${H} L0,${H}Z" fill="${color}" opacity=".12"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+function renderKpis(){
+  const h=Hub.ahora(), al=Hub.alertas(), inc=Hub.incidencias();
+  const crit=al.filter(a=>a.severidad==='critica'&&a.estado==='nueva').length, crit24=al.filter(a=>a.severidad==='critica'&&a.hora>h-24).length;
+  const abiertas=inc.filter(i=>ABIERTA(i.estado)).length, nuevas24=inc.filter(i=>i.hora_creada>h-24).length;
+  const serie=Hub.serieRiesgo(), ult=serie.at(-1), prev=serie.at(-2);
+  const alto=ult?ult.alto:0, delta=ult&&prev?ult.alto-prev.alto:null;
+  const v=Hub.ventilacionActual(); let off=0; v.forEach(r=>{if(r.estado==='apagada')off++;});
+  const k=[
+    {i:'alert',c:'var(--crit)',v:crit,l:'Alertas críticas sin revisar',d:`<b>${crit24}</b> en las últimas 24 h`},
+    {i:'clip',c:'var(--adv)',v:abiertas,l:'Incidencias abiertas',d:`<b>${nuevas24}</b> nuevas en 24 h`},
+    {i:'trend',c:'var(--alto)',v:alto,l:'Camas en riesgo alto',d:delta==null?'Cálculo diario a las 06:00':`<b>${delta>=0?'+':''}${delta}</b> frente a ayer`,sp:sparkline(serie.slice(-10).map(s=>s.alto),'var(--alto)')},
+    {i:'wind',c:'var(--info)',v:off,l:'Naves con ventilación apagada',d:`de <b>${v.size}</b> naves controlables`},
+  ];
+  document.getElementById('kpis').innerHTML=k.map(x=>`<div class="card kpi"><div class="row between">${icoBox(x.i,x.c,true,17)}${x.sp||''}</div><div><div class="v">${x.v}</div><div class="l">${x.l}</div></div><div class="d">${x.d}</div></div>`).join('');
+}
+function actualizarFinca(){
+  renderKpis();
+  const {dia,mapa}=Hub.riesgoUltimo(), critB=new Set(Hub.alertas({severidad:'critica',estado:'nueva'}).map(a=>U.partes(a.cama_id)[0]));
+  const incAb=Hub.incidencias({grupo:'abiertas'});
+  document.getElementById('bloquesSel').innerHTML=Array.from({length:G.bloques},(_,i)=>i+1).map(b=>{
+    let altos=0,cells='';
+    for(let n=1;n<=G.naves_por_bloque;n++) for(let k=1;k<=G.camas_por_nave;k++){
+      const r=mapa.get(U.camaId(b,n,(n-1)*G.camas_por_nave+k)); if(r?.nivel==='alto') altos++;
+      cells+=`<i style="background:${r?rgb(rampa(RAMPA_RIESGO,r.prob_ia_7d)):'var(--card-3)'}"></i>`;
+    }
+    const ninc=incAb.filter(x=>U.partes(x.cama_id)[0]===b).length;
+    return `<button class="bcard ${UI.bloque===b?'on':''}" data-act="bloque" data-v="${b}">
+      <div class="row between"><b>Bloque ${b}</b>${critB.has(b)?'<span class="alarm"></span>':''}</div>
+      <div class="mini">${cells}</div>
+      <div class="bmeta"><span>${altos} en riesgo alto</span><span>${plural(ninc,'incidencia','incidencias')}</span></div></button>`;
+  }).join('');
+  document.getElementById('mapaTitulo').textContent=`Bloque ${UI.bloque}`;
+  document.getElementById('mapaSub').textContent=dia==null?'Esperando el primer cálculo de riesgo (06:00)':`${G.naves_por_bloque} naves · ${CAMAS_BLOQUE} camas · riesgo calculado el ${Tiempo.corta(dia*24)} a las 06:00`;
+  const m=Mapa, plano=m.elev>=89;
+  document.getElementById('mapaTools').innerHTML=`
+    <div class="seg"><button class="${m.capa==='riesgo'?'on':''}" data-act="capa" data-v="riesgo">${ic('trend',14)}Riesgo</button><button class="${m.capa==='humedad'?'on':''}" data-act="capa" data-v="humedad">${ic('drop',14)}Humedad</button></div>
+    <div class="seg"><button class="${!plano?'on':''}" data-act="vista" data-v="3d">${ic('cube',14)}3D</button><button class="${plano?'on':''}" data-act="vista" data-v="plano">${ic('grid',14)}Plano</button></div>
+    <button class="tbtn" data-act="zoom" data-v="-1" title="Alejar">${ic('minus',16)}</button>
+    <button class="tbtn" data-act="zoom" data-v="1" title="Acercar">${ic('plus',16)}</button>
+    <button class="tbtn" data-act="resetVista" title="Restablecer vista">${ic('reset',16)}</button>`;
+  const ramp=m.capa==='riesgo'
+    ? `<div class="ramp"><div class="tiny muted" style="font-weight:600">Probabilidad de infección a 7 días</div><div class="g" style="background:${gradCSS(RAMPA_RIESGO)}"></div><div class="t"><span>0 %</span><span>30 %</span><span>60 %</span><span>100 %</span></div></div>`
+    : `<div class="ramp"><div class="tiny muted" style="font-weight:600">Humedad relativa (última lectura)</div><div class="g" style="background:${gradCSS(RAMPA_HR)}"></div><div class="t"><span>60 %</span><span>80 %</span><span>90 %</span><span>100 %</span></div></div>`;
+  document.getElementById('mapaLeyenda').innerHTML=`${ramp}<div class="spacer"></div>
+    <span class="lg"><span style="color:var(--accent)">${ic('drone',16)}</span>Dron de cable</span>
+    <span class="lg"><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="var(--crit)" stroke="#fff" stroke-width="1.5"/></svg>Incidencia abierta</span>
+    <span class="lg"><svg width="26" height="6"><line x1="1" y1="3" x2="25" y2="3" stroke="var(--flow)" stroke-width="2" stroke-dasharray="3 4" stroke-linecap="round"/></svg>Flujo de ventilación</span>`;
+  document.getElementById('fincaSide').innerHTML=ladoFinca(mapa);
+  Mapa.render();
+}
+function ladoFinca(mapa){
+  const h=Hub.ahora(), dr=Hub.dronesActual().get(`B${UI.bloque}`), sinRed=Hub.red()==='sin_red';
+  const altos=[...mapa.values()].filter(r=>r.nivel==='alto'&&U.partes(r.cama_id)[0]===UI.bloque).sort((a,b)=>b.prob_ia_7d-a.prob_ia_7d);
+  const medios=[...mapa.values()].filter(r=>r.nivel==='medio'&&U.partes(r.cama_id)[0]===UI.bloque).sort((a,b)=>b.prob_ia_7d-a.prob_ia_7d);
+  const rank=[...altos,...medios].slice(0,6);
+  return `${tarjetaDron(dr,h,sinRed)}
+    <div class="card"><div class="card-hd" style="margin-bottom:8px"><div><h3>Camas a vigilar</h3><div class="sub">${plural(altos.length,'cama','camas')} en riesgo alto en el bloque</div></div></div>
+      ${rank.length?`<div class="rank">${rank.map(r=>`<div class="rank-i" data-act="cama" data-v="${r.cama_id}"><span class="small" style="font-weight:600">${esc(U.sinBloque(r.cama_id))}</span><div class="bar" style="--c:${rgb(rampa(RAMPA_RIESGO,r.prob_ia_7d))}"><i style="width:${r.prob_ia_7d*100}%"></i></div><span class="p">${pct(r.prob_ia_7d)}</span></div>`).join('')}</div>`
+        :`<div class="small muted" style="padding:8px 0">Sin camas en riesgo medio o alto.</div>`}
+    </div>`;
+}
+function tarjetaDron(dr,h,sinRed){
+  if(!dr) return `<div class="card"><h3>Dron</h3><div class="small muted">Sin datos del dron.</div></div>`;
+  const pri=Hub.prioridadesDron(dr.dron_id), bc=dr.bateria>50?'var(--ok)':dr.bateria>25?'var(--adv)':'var(--crit)', cl=Hub.climaActual(dr.cama_id);
+  return `<div class="card">
+    <div class="card-hd">${icoBox('drone',V_DRON[dr.estado],false,20)}<div><h3>Dron ${esc(dr.dron_id)}</h3><div class="sub">${sinRed?'Última posición conocida':'Cámara 360 · sensores de clima'}</div></div><div class="spacer"></div>${chip(LABEL.dron[dr.estado],C_DRON[dr.estado],true,dr.estado==='inspeccionando'?'pulse':'')}</div>
+    <div class="dron-pos" data-act="cama" data-v="${dr.cama_id}" style="cursor:pointer"><div class="tiny muted">Ubicación</div><div class="v">${esc(U.sinBloque(dr.cama_id))}</div><div class="tiny faint">${Tiempo.etiqueta(dr.hora)}${sinRed?' · '+Tiempo.hace(dr.hora,h):''}</div></div>
+    <div class="stats2">
+      <div class="stat"><div class="l">${ic('thermo',13)}Temperatura</div><div class="v">${cl?f1(cl.temp_c)+' °C':'—'}</div></div>
+      <div class="stat"><div class="l">${ic('drop',13)}Humedad</div><div class="v">${cl?f1(cl.hr)+' %':'—'}</div></div>
+    </div>
+    <div class="row between" style="margin:14px 0 6px"><span class="small muted" style="display:flex;gap:6px;align-items:center">${ic('battery',14)}Batería</span><b class="num">${dr.bateria} %</b></div>
+    <div class="bar" style="--c:${bc}"><i style="width:${dr.bateria}%"></i></div>
+    <div class="sec">Cola de prioridad</div>
+    <div class="row" style="gap:6px">${pri.length?pri.map(id=>`<span class="chip c-advertencia" style="cursor:pointer" data-act="cama" data-v="${id}">${esc(U.sinBloque(id))}</span>`).join(''):'<span class="small muted">Patrulla rutinaria por todas las camas del bloque.</span>'}</div>
+  </div>`;
+}
+
+/* ---------- Mapa 3D (SVG con proyección propia, sin librerías) ---------- */
+const Mapa = {
+  theta:CONFIG.mapa.vista_inicial.theta, elev:CONFIG.mapa.vista_inicial.elev, zoom:CONFIG.mapa.vista_inicial.zoom,
+  capa:'riesgo', drag:null, movido:false, suprimir:false, raf:0, bloquePrevio:null,
+  dims(){const M=CONFIG.mapa;return {W:G.camas_por_nave*(M.cama_ancho+M.sep_camas)-M.sep_camas, D:G.naves_por_bloque*(M.cama_largo+M.pasillo)-M.pasillo};},
+  mount(host){
+    host.innerHTML=`<svg id="m3d" viewBox="-430 -300 860 600" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa 3D del bloque">
+      <defs><filter id="fSombra" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000" flood-opacity=".22"/></filter>
+        <marker id="mkFlujo" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1 9 5 1 9" fill="none" style="stroke:var(--flow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+      <g id="mSuelo"></g><g id="mCamas" filter="url(#fSombra)"></g><g id="mMarcas"></g><g id="mEtiq"></g>
+      <g id="mDron" class="m-dron">
+        <ellipse class="m-sombra" cx="0" cy="0" rx="11" ry="4.5"/>
+        <rect class="m-cable" x="-.8" y="0" width="1.6" height="1"/>
+        <circle class="halo" r="17"/>
+        <g class="cuerpo"><line class="brazo" x1="-8" y1="-8" x2="8" y2="8"/><line class="brazo" x1="8" y1="-8" x2="-8" y2="8"/>
+          <circle class="rotor" cx="-8" cy="-8" r="4.6"/><circle class="rotor" cx="8" cy="-8" r="4.6"/><circle class="rotor" cx="-8" cy="8" r="4.6"/><circle class="rotor" cx="8" cy="8" r="4.6"/>
+          <circle class="nucleo" r="4.6"/></g>
+        <text class="tag" x="16" y="-12"></text>
+      </g>
+    </svg><div class="mapa-hint">${ic('move',13)}Arrastra para girar · rueda para acercar · clic en una cama para ver el detalle</div>`;
+    const svg=host.querySelector('svg');
+    svg.addEventListener('pointerdown',e=>{
+      if(e.button!==0) return;
+      this.drag={x:e.clientX,y:e.clientY,t:this.theta,el:this.elev}; this.movido=false;
+      const mv=ev=>{
+        const dx=ev.clientX-this.drag.x, dy=ev.clientY-this.drag.y;
+        if(!this.movido&&Math.abs(dx)+Math.abs(dy)<5) return;
+        if(!this.movido){this.movido=true;svg.classList.add('arrastrando','sin-anim');document.getElementById('tip').style.display='none';}
+        this.theta=this.drag.t+dx*0.35; this.elev=clamp(this.drag.el-dy*0.28,16,90); this.pedir();
+      };
+      const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
+        svg.classList.remove('arrastrando'); setTimeout(()=>svg.classList.remove('sin-anim'),60);
+        if(this.movido){this.suprimir=true;setTimeout(()=>this.suprimir=false,0);actualizarHerramientas();}
+        this.drag=null;};
+      window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up);
+    });
+    svg.addEventListener('wheel',e=>{e.preventDefault();this.zoom=clamp(this.zoom*(e.deltaY<0?1.08:1/1.08),0.6,2.6);svg.classList.add('sin-anim');this.pedir();clearTimeout(this._wt);this._wt=setTimeout(()=>svg.classList.remove('sin-anim'),120);},{passive:false});
+  },
+  pedir(){ if(this.raf) return; this.raf=requestAnimationFrame(()=>{this.raf=0;this.render();}); },
+  animarA(t,e,z){
+    const norm=a=>((a%360)+540)%360-180;
+    this.theta=norm(this.theta);
+    const t0=this.theta,e0=this.elev,z0=this.zoom,ini=performance.now(), svg=document.getElementById('m3d');
+    svg?.classList.add('sin-anim');
+    const paso=now=>{const k=Math.min(1,(now-ini)/520),q=1-Math.pow(1-k,3);
+      this.theta=t0+(t-t0)*q;this.elev=e0+(e-e0)*q;this.zoom=z0+(z-z0)*q;this.render();
+      if(k<1)requestAnimationFrame(paso);else{svg?.classList.remove('sin-anim');actualizarHerramientas();}};
+    requestAnimationFrame(paso);
+  },
+  valor(id,r){
+    if(this.capa==='riesgo') return r?{v:r.prob_ia_7d,c:rampa(RAMPA_RIESGO,r.prob_ia_7d)}:null;
+    const cl=Hub.climaActual(id); if(!cl) return null;
+    const v=clamp((cl.hr-60)/40,0,1); return {v,c:rampa(RAMPA_HR,v)};
+  },
+  render(){
+    const svg=document.getElementById('m3d'); if(!svg) return;
+    const M=CONFIG.mapa, {W,D}=this.dims(), th=this.theta*Math.PI/180, el=this.elev*Math.PI/180, s=this.zoom*0.9;
+    const sn=Math.sin(th), cs=Math.cos(th), sE=Math.sin(el), cE=Math.cos(el);
+    const P=(x,y,z)=>{const cx=x-W/2,cy=y-D/2,xr=cx*cs-cy*sn,yr=cx*sn+cy*cs;return [xr*s,(yr*sE-z*cE)*s,yr];};
+    const pts=a=>a.map(p=>{const q=P(p[0],p[1],p[2]);return q[0].toFixed(1)+','+q[1].toFixed(1);}).join(' ');
+    const b=UI.bloque, {mapa}=Hub.riesgoUltimo(), vent=Hub.ventilacionActual();
+    const incPorCama=new Set(Hub.incidencias({grupo:'abiertas',bloque:b}).map(i=>i.cama_id));
+    const sindato=hexRgb(getComputedStyle(document.documentElement).getPropertyValue('--sindato')||'#3E4866');
+    const CW=M.cama_ancho, CD=M.cama_largo, paso=CW+M.sep_camas, pasoN=CD+M.pasillo, lados=this.elev<88.5;
+
+    let suelo=`<polygon class="m-base" points="${pts([[-52,-34,0],[W+30,-34,0],[W+30,D+30,0],[-52,D+30,0]])}"/>`, etiq='';
+    for(let n=1;n<=G.naves_por_bloque;n++){
+      const y0=(n-1)*pasoN, v=vent.get(`${b}-${n}`), off=v&&v.estado==='apagada';
+      suelo+=`<polygon class="m-nave ${off?'off':''}" points="${pts([[-8,y0-8,0],[W+8,y0-8,0],[W+8,y0+CD+8,0],[-8,y0+CD+8,0]])}"/>`;
+      if(v){const yv=y0+CD+18, a=P(6,yv,0), z=P(W-6,yv,0);
+        suelo+=`<line class="m-flujo ${off?'off':''}" x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${z[0].toFixed(1)}" y2="${z[1].toFixed(1)}" ${off?'':'marker-end="url(#mkFlujo)"'}/>`;}
+      const L=P(-30,y0+CD/2,0); etiq+=`<text class="m-lbl" x="${L[0].toFixed(1)}" y="${(L[1]+4).toFixed(1)}" text-anchor="middle">N${n}</text>`;
+    }
+    const cajas=[];
+    for(let n=1;n<=G.naves_por_bloque;n++) for(let k=1;k<=G.camas_por_nave;k++){
+      const num=(n-1)*G.camas_por_nave+k, id=U.camaId(b,n,num), x0=(k-1)*paso, y0=(n-1)*pasoN;
+      const val=this.valor(id,mapa.get(id)), hgt=val?4+val.v*M.altura_max:2, col=val?val.c:sindato;
+      cajas.push({id,num,x0,y0,x1:x0+CW,y1:y0+CD,h:hgt,col,d:P(x0+CW/2,y0+CD/2,0)[2]});
+    }
+    cajas.sort((a,c)=>a.d-c.d);
+    let g='', marcas='';
+    const caras=[[0,1,'f'],[0,-1,'b'],[1,0,'r'],[-1,0,'l']];
+    const alturaDe=new Map();
+    for(const c of cajas){
+      alturaDe.set(c.id,c);
+      let f='';
+      if(lados) for(const [nx,ny,k] of caras){
+        const nyr=nx*sn+ny*cs; if(nyr<=0.02) continue;
+        let q;
+        if(k==='f') q=[[c.x0,c.y1,0],[c.x1,c.y1,0],[c.x1,c.y1,c.h],[c.x0,c.y1,c.h]];
+        else if(k==='b') q=[[c.x1,c.y0,0],[c.x0,c.y0,0],[c.x0,c.y0,c.h],[c.x1,c.y0,c.h]];
+        else if(k==='r') q=[[c.x1,c.y1,0],[c.x1,c.y0,0],[c.x1,c.y0,c.h],[c.x1,c.y1,c.h]];
+        else q=[[c.x0,c.y0,0],[c.x0,c.y1,0],[c.x0,c.y1,c.h],[c.x0,c.y0,c.h]];
+        f+=`<polygon points="${pts(q)}" fill="${rgb(c.col,0.5+0.22*nyr+(ny!==0?0.04:0))}"/>`;
+      }
+      const xc=(c.x0+c.x1)/2, a=P(xc,c.y0+6,c.h), z=P(xc,c.y1-6,c.h);
+      f+=`<polygon class="m-top" points="${pts([[c.x0,c.y0,c.h],[c.x1,c.y0,c.h],[c.x1,c.y1,c.h],[c.x0,c.y1,c.h]])}" fill="${rgb(c.col)}"/>`;
+      f+=`<line class="m-planta" x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${z[0].toFixed(1)}" y2="${z[1].toFixed(1)}"/>`;
+      if(this.zoom>=1.45){const t=P(xc,(c.y0+c.y1)/2,c.h);f+=`<text class="m-lbl cama" x="${t[0].toFixed(1)}" y="${(t[1]+3).toFixed(1)}" text-anchor="middle">${c.num}</text>`;}
+      g+=`<g class="m-cama ${UI.cama===c.id?'sel':''}" data-act="cama" data-v="${c.id}" data-tip="${c.id}">${f}</g>`;
+      if(incPorCama.has(c.id)){const t=P(xc,(c.y0+c.y1)/2,c.h);marcas+=`<g class="m-inc" transform="translate(${t[0].toFixed(1)} ${(t[1]-2).toFixed(1)})"><circle class="r" r="6"/><circle class="c" r="5"/></g>`;}
+    }
+    document.getElementById('mSuelo').innerHTML=suelo;
+    document.getElementById('mCamas').innerHTML=g;
+    document.getElementById('mMarcas').innerHTML=marcas;
+    document.getElementById('mEtiq').innerHTML=etiq;
+    // dron de cable
+    const dg=document.getElementById('mDron'), dr=Hub.dronesActual().get(`B${b}`), c=dr&&alturaDe.get(dr.cama_id);
+    if(!c){dg.style.display='none';return;}
+    dg.style.display='';
+    if(this.bloquePrevio!==b){svg.classList.add('sin-anim');requestAnimationFrame(()=>requestAnimationFrame(()=>{if(!this.drag)svg.classList.remove('sin-anim');}));this.bloquePrevio=b;}
+    const zD=dr.estado==='inspeccionando'?c.h+14:c.h+M.altura_dron;
+    const p=P((c.x0+c.x1)/2,(c.y0+c.y1)/2,zD), L=Math.max(0,(zD-c.h)*cE*s);
+    dg.style.setProperty('--dc',V_DRON[dr.estado]);
+    dg.style.transform=`translate(${p[0].toFixed(1)}px,${p[1].toFixed(1)}px)`;
+    dg.querySelector('.m-cable').style.transform=`scaleY(${L.toFixed(1)})`;
+    dg.querySelector('.m-sombra').style.transform=`translate(0px,${L.toFixed(1)}px) scale(${(0.6+0.4*sE).toFixed(2)},${(0.5+0.5*sE).toFixed(2)})`;
+    dg.querySelector('.tag').textContent=`Dron ${dr.dron_id}`;
+  },
+};
+function actualizarHerramientas(){ if(UI.tab==='finca'&&UI.montada==='finca') actualizarFinca(); }
+
+/* ---------- Detalle de cama ---------- */
+function abrirCama(id){ UI.cama=id; UI.bloque=U.partes(id)[0]; document.getElementById('drawer').classList.add('open'); document.getElementById('scrim').classList.add('open'); render(); }
+function cerrarDrawer(){ UI.cama=null; document.getElementById('drawer').classList.remove('open'); document.getElementById('scrim').classList.remove('open'); }
+function gauge(v,color){
+  return `<svg width="150" height="86" viewBox="0 0 150 86"><path d="M15 78 A60 60 0 0 1 135 78" fill="none" stroke="var(--card-3)" stroke-width="12" stroke-linecap="round"/>
+    <path d="M15 78 A60 60 0 0 1 135 78" fill="none" stroke="${color}" stroke-width="12" stroke-linecap="round" pathLength="100" stroke-dasharray="${v==null?0:Math.max(0.5,v*100)} 100"/></svg>`;
+}
+function renderDrawer(){
+  if(!UI.cama) return;
+  const id=UI.cama, [b,n,c]=U.partes(id), h=Hub.ahora(), serie=Hub.riesgoCama(id), r=serie.at(-1), v=Hub.variablesCama(id);
+  const niv=r?r.nivel:'sindato', vis=Hub.ultimaVisita(id), incs=Hub.incidencias({cama_id:id});
+  const {cama:lc,sensor}=Hub.lecturasCama(id,h-CONFIG.ui.horas_grafica,h);
+  const um=CONFIG.clima.umbral_mojado_hr, col=r?rgb(rampa(RAMPA_RIESGO,r.prob_ia_7d)):'var(--faint)';
+  const fac=[
+    ['drop',v.wet72>=CONFIG.modelo_prueba.umbral_mojado_reglas_h?'var(--alto)':'var(--info)',`Humedad ≥ ${um} % durante <b>${v.wet72} h</b> en 72 h · <b>${v.wet24} h</b> en 24 h`],
+    ['thermo','var(--adv)',`Temperatura media 24 h <b>${f1(v.tMean)} °C</b>${v.hrMax24!=null?` · humedad máxima <b>${f1(v.hrMax24)} %</b>`:''}`],
+    ['activity','var(--accent)',`Cambio de humedad frente al día anterior <b>${v.deltaHR>=0?'+':''}${f1(v.deltaHR)} %</b>`],
+    ['octagon',v.dist<99?'var(--crit)':'var(--ok)',v.dist===0?'<b>Botrytis confirmada en esta cama</b>':v.dist<99?`Botrytis confirmada a <b>${plural(v.dist,'cama','camas')}</b> en la misma nave`:'Sin casos confirmados en la nave'],
+    ['drone','var(--insp)',v.edad==null?'Aún sin medición directa del dron: se usa el sensor del bloque':`Última medición directa del dron <b>hace ${Math.floor(v.edad)} h</b>`],
+    ...(v.borde?[['edge','var(--muted)','Cama de borde: suele acumular más humedad']]:[]),
+  ];
+  document.getElementById('drawerIn').innerHTML=`
+    <div class="row between" style="align-items:flex-start">
+      <div><div class="small muted">Bloque ${b} · Nave ${n}</div><h2>Cama ${c}</h2></div>
+      <button class="ibtn" data-act="cerrar" title="Cerrar">${ic('x',18)}</button>
+    </div>
+    <div class="row" style="margin-top:12px;gap:6px">${chip('Riesgo '+LABEL.nivel[niv].toLowerCase(),'c-'+niv)}${v.borde?chip('Cama de borde','c-mute',false):''}${incs.filter(i=>ABIERTA(i.estado)).map(i=>chip(LABEL.inc[i.estado],C_INC[i.estado])).join('')}</div>
+    <div class="gauge-card">
+      <div class="gauge">${gauge(r?.prob_ia_7d,col)}<div class="v num" style="color:${col}">${r?pct(r.prob_ia_7d):'—'}</div><div class="l">Probabilidad de infección en 7 días</div></div>
+      <div class="stack" style="gap:12px">
+        <div class="stat"><div class="l">${ic('leaf',13)}Riesgo por reglas</div><div class="v">${r?f2(r.riesgo_reglas):'—'}</div></div>
+        <div class="stat"><div class="l">${ic('drone',13)}Última visita</div><div class="v" style="font-size:14px">${vis?Tiempo.hace(vis.hora,h):'—'}</div></div>
+      </div>
+    </div>
+    <div class="sec">Qué explica este riesgo</div>
+    <div class="factores">${fac.map(([i,cc,t])=>`<div class="factor">${icoBox(i,cc,true,16)}<span>${t}</span></div>`).join('')}</div>
+    <div class="sec">Humedad relativa · últimas 72 h</div>
+    ${graficaClima(lc,sensor,'hr',h,{min:50,max:100,umbral:um,unidad:'%',color:'var(--info)'})}
+    <div class="sec">Temperatura · últimas 72 h</div>
+    ${graficaClima(lc,sensor,'temp_c',h,{min:5,max:30,unidad:'°C',color:'var(--adv)'})}
+    <div class="leyenda"><span><i style="background:var(--muted)"></i>Sensor del bloque</span><span><i style="background:var(--accent);height:8px;width:8px;border-radius:50%"></i>Medición del dron en la cama</span><span><i style="background:var(--alto)"></i>Umbral de mojado</span></div>
+    <div class="sec">Riesgo · últimos ${CONFIG.ui.dias_riesgo} días</div>
+    ${graficaRiesgo(serie.slice(-CONFIG.ui.dias_riesgo))}
+    <div class="sec">Incidencias</div>
+    ${incs.length?incs.map(i=>`<div class="stat" style="margin-bottom:10px;padding:14px"><div class="row" style="margin-bottom:12px"><b>#${i.incidencia_id}</b>${chip(LABEL.inc[i.estado],C_INC[i.estado])}<span class="small muted">posición ${i.posicion}</span></div>${timelineInc(i)}</div>`).join(''):'<div class="small muted">Sin incidencias registradas en esta cama.</div>'}`;
+}
+function graficaClima(lc,sensor,campo,h,{min,max,umbral,unidad,color}){
+  const W=520,H=150,pl=34,pr=10,pt=10,pb=22,x0=h-CONFIG.ui.horas_grafica;
+  const X=x=>pl+(x-x0)/(h-x0)*(W-pl-pr), Y=y=>pt+(1-(clamp(y,min,max)-min)/(max-min))*(H-pt-pb);
+  let g=`<defs><linearGradient id="g_${campo}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:${color}" stop-opacity=".28"/><stop offset="1" style="stop-color:${color}" stop-opacity="0"/></linearGradient></defs>`;
+  for(let i=0;i<=3;i++){const val=min+(max-min)*i/3,y=Y(val);g+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" style="stroke:var(--border)"/><text x="${pl-6}" y="${y+4}" style="fill:var(--faint)" font-size="10" text-anchor="end">${Math.round(val)}</text>`;}
+  for(let d=Math.ceil(x0/24)*24;d<=h;d+=24){const x=X(d);g+=`<text x="${x}" y="${H-5}" style="fill:var(--faint)" font-size="10" text-anchor="${x>W-40?'end':x<pl+20?'start':'middle'}">${Tiempo.corta(d)}</text>`;}
+  if(umbral!=null){const y=Y(umbral);g+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" style="stroke:var(--alto)" stroke-dasharray="4 4" opacity=".8"/>`;}
+  const s=sensor.filter(r=>r.hora>=x0);
+  if(s.length>1){
+    const line=s.map((r,i)=>`${i?'L':'M'}${X(r.hora).toFixed(1)},${Y(r[campo]).toFixed(1)}`).join('');
+    g+=`<path d="${line} L${X(s.at(-1).hora).toFixed(1)},${H-pb} L${X(s[0].hora).toFixed(1)},${H-pb}Z" fill="url(#g_${campo})"/><path d="${line}" fill="none" style="stroke:var(--muted)" stroke-width="1.6" stroke-linejoin="round"/>`;
+  }
+  g+=lc.map(r=>`<circle cx="${X(r.hora).toFixed(1)}" cy="${Y(r[campo]).toFixed(1)}" r="4" style="fill:var(--accent);stroke:var(--card)" stroke-width="2"><title>${Tiempo.etiqueta(r.hora)} · ${r[campo]} ${unidad}</title></circle>`).join('');
+  if(!s.length&&!lc.length) g+=`<text x="${W/2}" y="${H/2}" style="fill:var(--muted)" text-anchor="middle" font-size="12">Sin lecturas todavía</text>`;
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}">${g}</svg>`;
+}
+function graficaRiesgo(serie){
+  if(!serie.length) return '<div class="small muted">Aún no hay cálculos de riesgo.</div>';
+  const W=520,H=120,pl=34,pt=10,pb=22,n=serie.length,bw=(W-pl-10)/n, Y=v=>pt+(1-v)*(H-pt-pb);
+  let g='';
+  for(const [v,c] of [[CONFIG.riesgo.umbral_alto,'var(--alto)'],[CONFIG.riesgo.umbral_medio,'var(--medio)']]) g+=`<line x1="${pl}" x2="${W-10}" y1="${Y(v)}" y2="${Y(v)}" style="stroke:${c}" stroke-dasharray="4 4" opacity=".6"/><text x="${pl-6}" y="${Y(v)+4}" style="fill:var(--faint)" font-size="10" text-anchor="end">${Math.round(v*100)}%</text>`;
+  serie.forEach((r,i)=>{const w=Math.min(26,bw*0.62),x=pl+i*bw+(bw-w)/2,y=Y(r.prob_ia_7d);
+    g+=`<rect x="${x}" y="${y}" width="${w}" height="${Math.max(2,H-pb-y)}" rx="5" fill="${rgb(rampa(RAMPA_RIESGO,r.prob_ia_7d))}"><title>${Tiempo.corta(r.dia*24)} · ${pct(r.prob_ia_7d)} · reglas ${f2(r.riesgo_reglas)}</title></rect>`;
+    if(n<=8||i%2===n%2) g+=`<text x="${x+w/2}" y="${H-5}" style="fill:var(--faint)" font-size="10" text-anchor="middle">${Tiempo.corta(r.dia*24)}</text>`;});
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}">${g}</svg>`;
+}
+function timelineInc(i){
+  const seg=Hub.seguimientos(i.incidencia_id), ev=[];
+  ev.push({h:i.hora_creada,c:'var(--info)',t:'Sospecha detectada por el dron',s:i.origen==='prediccion'?'Visita prioritaria por predicción de riesgo':'Patrulla rutinaria'});
+  if(i.hora_confirmada!=null) ev.push({h:i.hora_confirmada,c:'var(--crit)',t:'Confirmada',s:`${seg.length?'':plural(i.plantas_afectadas,'planta afectada','plantas afectadas')+' · '}confianza ${f2(i.confianza)}`});
+  if(i.estado==='descartada') ev.push({h:i.hora_cerrada,c:'var(--faint)',t:'Descartada',s:`La inspección de cerca no confirmó (confianza ${f2(i.confianza)})`});
+  if(['en_tratamiento','en_seguimiento','cerrada'].includes(i.estado)||seg.length) ev.push({h:i.hora_confirmada!=null?i.hora_confirmada+CONFIG.drones.horas_hasta_tratamiento:null,c:'var(--adv)',t:'Tratamiento aplicado',s:'Personal de campo'});
+  seg.forEach(s=>ev.push({h:s.hora,c:V_RES[s.resultado],t:`${LABEL.res[s.resultado]} · ${plural(s.plantas_afectadas,'planta','plantas')}`,s:`${esc(s.nota)} · dron ${esc(s.dron_id)}`}));
+  if(i.estado==='cerrada') ev.push({h:i.hora_cerrada,c:'var(--ok)',t:'Cerrada',s:'Dos revisitas limpias seguidas'});
+  return `<div class="tl">${ev.map(e=>`<div class="ev" style="--c:${e.c}"><div class="h">${e.h==null?'':Tiempo.etiqueta(e.h)}</div><div class="t">${e.t}</div><div class="small muted">${e.s}</div></div>`).join('')}</div>`;
+}
+
+/* ---------- Alertas ---------- */
+function vistaAlertas(){
+  const f=UI.filtros, base={estado:f.estado,bloque:f.bloque,orden:'recientes'}, max=CONFIG.ui.max_alertas_lista;
+  const todas=Hub.alertas({tipos:TIPOS_ALERTA,bloque:f.bloque});
+  const cuenta=(t,e)=>todas.filter(a=>a.tipo===t&&(!e||a.estado===e)).length;
+  const seg=(clave,opts)=>`<div class="seg">${opts.map(([v,t])=>`<button class="${f[clave]===v?'on':''}" data-act="filtro" data-k="${clave}" data-v="${v}">${t}</button>`).join('')}</div>`;
+  const sel=(clave,opts)=>`<select class="sel-in" data-act="filtroSel" data-k="${clave}">${opts.map(([v,t])=>`<option value="${v}" ${f[clave]===v?'selected':''}>${t}</option>`).join('')}</select>`;
+  const columna=(tipo,titulo,sub,icono,color)=>{
+    const al=Hub.alertas({...base,tipos:[tipo]}), lista=al.slice(0,max), n=cuenta(tipo,'nueva');
+    return `<div class="acol">
+      <div class="acol-hd" style="--c:${color}">${icoBox(icono,color,false,20)}<div style="flex:1;min-width:0"><h3>${titulo}</h3><div class="sub">${sub}</div></div>
+        <div class="acol-n"><div class="v num">${al.length}</div><div class="tiny muted">${n?`<b style="color:${color}">${n}</b> sin revisar`:'al día'}</div></div></div>
+      ${lista.length?`<div class="alist">${lista.map(tarjetaAlerta).join('')}</div>${al.length>lista.length?`<div class="small muted">Mostrando ${lista.length} de ${al.length}</div>`:''}`
+        :`<div class="card empty">${icoBox(icono,color)}<div>Sin alertas con estos filtros.</div></div>`}
+    </div>`;
+  };
+  return `<div class="stack">
+    <div class="card filtros">
+      ${seg('estado',[['todas','Todas'],['nueva','Nuevas'],['vista','Vistas'],['resuelta','Resueltas']])}
+      ${sel('bloque',[['todos','Todos los bloques'],...Array.from({length:G.bloques},(_,i)=>[String(i+1),'Bloque '+(i+1)])])}
+      <div class="spacer"></div>
+      <button class="btn ghost" data-act="tab" data-v="incidencias">${ic('clip',15)}Seguimientos y ventilación en Incidencias</button>
+    </div>
+    <div class="acols">
+      ${columna('confirmacion','Enfermedad confirmada','Botrytis confirmada por la inspección del dron','octagon','var(--crit)')}
+      ${columna('riesgo_7d','Posible enfermedad','Camas con riesgo alto de infección en los próximos 7 días','trend','var(--adv)')}
+    </div>
+  </div>`;
+}
+function tarjetaAlerta(a){
+  const open=UI.abiertas.has(a.alerta_id), acc=CONFIG.acciones[a.tipo]||[];
+  return `<div class="acard ${a.estado==='nueva'?'nueva':''}" style="--c:${SEV_V[a.severidad]}">
+    <div class="ah" data-act="alertaToggle" data-v="${a.alerta_id}">
+      ${icoBox(TIPO_IC[a.tipo],SEV_V[a.severidad],false,18)}
+      <div style="flex:1;min-width:0">
+        <div class="row" style="gap:8px;flex-wrap:nowrap">${a.estado==='nueva'?'<span class="newdot"></span>':''}<span class="tt" style="min-width:0">${esc(a.titulo)}</span></div>
+        <div class="meta">${esc(LABEL.tipo[a.tipo])} · ${Tiempo.etiqueta(a.hora)}</div>
+      </div>
+      ${a.estado==='resuelta'?chip(LABEL.accion[a.accion]||a.accion,'c-ok',false):chip(LABEL.sev[a.severidad],'c-'+a.severidad)}
+      <span class="chev ${open?'open':''}">${ic('chev',18)}</span>
+    </div>
+    ${open?`<div class="ab"><p class="msg">${esc(a.mensaje)}</p>
+      <div class="row">${a.estado!=='resuelta'?acc.map((x,i)=>`<button class="btn ${i===0?'primary':''}" data-act="resolver" data-v="${a.alerta_id}" data-a="${x}">${LABEL.accion[x]}</button>`).join(''):''}
+        <div class="spacer"></div>
+        ${a.cama_id?`<button class="btn ghost" data-act="verMapa" data-v="${a.cama_id}">${ic('map',15)}Ver cama</button>`:''}
+        ${a.incidencia_id?`<button class="btn ghost" data-act="verInc" data-v="${a.incidencia_id}">${ic('clip',15)}Ver incidencia</button>`:''}</div></div>`:''}
+  </div>`;
+}
+
+/* ---------- Incidencias ---------- */
+function vistaIncidencias(){
+  const todas=Hub.incidencias(), lista=Hub.incidencias({grupo:UI.incFiltro}), estados=Object.keys(LABEL.inc);
+  const sel=UI.incSel!=null?todas.find(i=>i.incidencia_id===UI.incSel):null;
+  return `<div class="stack">
+    <div class="card"><div class="card-hd"><div><h3>Ciclo de las incidencias</h3><div class="sub">${plural(todas.length,'incidencia registrada','incidencias registradas')} en la temporada</div></div></div>
+      <div class="pipe">${estados.map(e=>`<div class="pipe-i" style="--c:${V_INC[e]}"><div class="n">${todas.filter(i=>i.estado===e).length}</div><div class="l">${LABEL.inc[e]}</div></div>`).join('')}</div></div>
+    <div class="incs">
+      <div class="card"><div class="card-hd"><div class="seg">${[['abiertas','Abiertas'],['todas','Todas'],['cerradas','Cerradas'],['descartadas','Descartadas']].map(([v,t])=>`<button class="${UI.incFiltro===v?'on':''}" data-act="incFiltro" data-v="${v}">${t}</button>`).join('')}</div><div class="spacer"></div><button class="btn" data-act="csv">${ic('download',15)}Exportar CSV</button></div>
+        ${lista.length?`<div class="tblwrap"><table><thead><tr><th>#</th><th>Ubicación</th><th>Pos.</th><th>Origen</th><th>Estado</th><th>Conf.</th><th>Plantas</th><th>Creada</th></tr></thead><tbody>
+        ${lista.map(i=>`<tr class="${UI.incSel===i.incidencia_id?'sel':''}" data-act="incSel" data-v="${i.incidencia_id}"><td class="muted">${i.incidencia_id}</td><td style="font-weight:600">${esc(U.corto(i.cama_id))}</td><td>${i.posicion??'—'}</td><td>${LABEL.origen[i.origen]}</td><td>${chip(LABEL.inc[i.estado],C_INC[i.estado])}</td><td>${f2(i.confianza)}</td><td>${i.plantas_afectadas??'—'}</td><td class="muted">${Tiempo.etiqueta(i.hora_creada)}</td></tr>`).join('')}
+        </tbody></table></div>`:`<div class="empty">${icoBox('leaf','var(--ok)')}<div>Sin incidencias en este grupo.</div></div>`}
+      </div>
+      <div class="card">${sel?`<div class="card-hd"><div><h3>Incidencia #${sel.incidencia_id}</h3><div class="sub">${esc(U.legible(sel.cama_id))} · posición ${sel.posicion}</div></div><div class="spacer"></div>${chip(LABEL.inc[sel.estado],C_INC[sel.estado])}</div>
+        ${timelineInc(sel)}
+        <div class="row" style="margin-top:6px"><button class="btn" data-act="verMapa" data-v="${sel.cama_id}">${ic('map',15)}Ver cama</button><span class="small muted">El dron registra cada revisita cada ${CONFIG.drones.dias_revisita} días.</span></div>`
+        :`<div class="empty">${icoBox('clip','var(--accent)')}<div>Selecciona una incidencia para ver su historial.</div></div>`}</div>
+    </div>
+    ${trazabilidad()}</div>`;
+}
+function trazabilidad(){
+  const t=UI.trazaTipo, ev=Hub.alertas({tipos:t==='todos'?TIPOS_TRAZA:[t],orden:'recientes'}), lista=ev.slice(0,CONFIG.ui.max_alertas_lista);
+  const n=k=>Hub.alertas({tipos:[k]}).length;
+  return `<div class="card"><div class="card-hd"><div><h3>Trazabilidad</h3><div class="sub">Revisitas del dron, cambios de ventilación y sospechas descartadas</div></div><div class="spacer"></div>
+    <div class="seg">${[['todos','Todo',Hub.alertas({tipos:TIPOS_TRAZA}).length],...TIPOS_TRAZA.map(k=>[k,LABEL.tipo[k],n(k)])].map(([v,l,c])=>`<button class="${t===v?'on':''}" data-act="trazaTipo" data-v="${v}">${l} <span class="faint num">${c}</span></button>`).join('')}</div></div>
+    ${lista.length?`<div class="alist">${lista.map(tarjetaAlerta).join('')}</div>${ev.length>lista.length?`<div class="small muted" style="margin-top:10px">Mostrando ${lista.length} de ${ev.length}</div>`:''}`
+      :`<div class="empty">${icoBox('repeat','var(--accent)')}<div>Sin eventos registrados todavía.</div></div>`}
+  </div>`;
+}
+function exportarCSV(){
+  const cols=['incidencia_id','cama_id','ubicacion','posicion','origen','estado','hora_creada','hora_confirmada','hora_cerrada','confianza','plantas_afectadas'];
+  const filas=Hub.incidencias().map(i=>({...i,ubicacion:U.legible(i.cama_id)}));
+  const csv=[cols.join(','),...filas.map(r=>cols.map(c=>`"${String(r[c]??'').replace(/"/g,'""')}"`).join(','))].join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`incidencias_${Hub.corrida().corrida_id}_${Tiempo.corta(Hub.ahora()).replace(/\s/g,'-')}.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
+
+/* ---------- Ventilación ---------- */
+function vistaVentilacion(){
+  const h=Hub.ahora(), v=Hub.ventilacionActual(), hist=Hub.ventilacionHistorial(20);
+  let bloques='';
+  for(let b=1;b<=G.bloques;b++){
+    const cards=CONFIG.ventilacion.naves_con_ventilacion.map(n=>{const r=v.get(`${b}-${n}`), on=r.estado==='encendida';
+      return `<div class="vcard"><div class="row between"><div><div style="font-weight:650">Nave ${n}</div><div class="tiny" style="color:${on?'var(--ok)':'var(--adv)'};font-weight:600">${on?'Encendida':'Apagada'}</div></div>
+        <button class="switch ${on?'on':''}" data-act="vent" data-b="${b}" data-n="${n}" data-e="${on?'apagada':'encendida'}" title="${on?'Apagar':'Encender'}"></button></div>
+        <div class="tiny muted">${esc(r.motivo)} · ${Tiempo.hace(r.hora,h)}</div></div>`;}).join('');
+    bloques+=`<div><div class="sec" style="margin-top:4px">Bloque ${b}</div><div class="vgrid">${cards}</div></div>`;
+  }
+  return `<div class="finca"><div class="card stack" style="gap:14px"><div class="card-hd" style="margin:0"><div><h3>Ventilación por nave</h3><div class="sub">Naves con ventilación controlable: ${CONFIG.ventilacion.naves_con_ventilacion.join(', ')}</div></div></div>${bloques}</div>
+    <div class="stack"><div class="card"><div class="card-hd">${icoBox('wind','var(--info)',true,16)}<h3>Cuándo apagarla</h3></div><div class="small" style="display:flex;flex-direction:column;gap:10px">
+      <div class="factor" style="align-items:flex-start"><span class="chip c-ok">Encendida</span><span class="muted">Baja la humedad de la nave, pero el aire lleva esporas a las camas siguientes.</span></div>
+      <div class="factor" style="align-items:flex-start"><span class="chip c-advertencia">Apagada</span><span class="muted">Frena el transporte de esporas, pero sube la humedad, sobre todo en los bordes.</span></div>
+      <div class="muted">Se apaga ${CONFIG.ventilacion.horas_apagado} h de forma automática cuando se confirma Botrytis en la nave. Puedes cambiarla manualmente.</div></div></div>
+      <div class="card"><div class="card-hd"><h3>Historial</h3></div>${hist.length?`<div class="tl">${hist.map(r=>`<div class="ev" style="--c:var(--${r.estado==='encendida'?'ok':'adv'})"><div class="h">${Tiempo.etiqueta(r.hora)}</div><div class="t">B${r.bloque} · Nave ${r.nave} · ${r.estado}</div><div class="small muted">${esc(r.motivo)}</div></div>`).join('')}</div>`:'<div class="small muted">Sin cambios todavía.</div>'}</div></div></div>`;
+}
+
+/* ---------- Análisis ---------- */
+function vistaAnalisis(){
+  const m=Hub.metricas(), serie=Hub.serieRiesgo();
+  const tiles=[
+    ['clock','var(--accent)',m.respuesta==null?'—':`${f1(m.respuesta)} h`,'Respuesta tras la alerta',m.nResp?`Entre la alerta a 7 días y la confirmación (${plural(m.nResp,'caso','casos')})`:'Aún sin casos confirmados tras una alerta'],
+    ['check','var(--ok)',pct(m.tasa),'Tasa de confirmación',`${m.conf} confirmadas · ${m.desc} descartadas`],
+    ['drone','var(--insp)',pct(m.cobertura),'Cobertura del dron · 24 h','Camas medidas directamente'],
+    ['repeat','var(--info)',m.revisitas,'Revisitas automáticas','Registradas por el dron'],
+  ];
+  const totO=m.porOrigen.prediccion+m.porOrigen.patrulla, maxT=Math.max(1,...Object.values(m.porTipo));
+  return `<div class="stack">
+    <div class="grid4">${tiles.map(([i,c,v,l,d])=>`<div class="card tile">${icoBox(i,c,true,16)}<div class="v">${v}</div><div class="l">${l}</div><div class="d">${d}</div></div>`).join('')}</div>
+    <div class="card"><div class="card-hd"><div><h3>Camas en riesgo por día</h3><div class="sub">Cálculo diario del modelo a 7 días</div></div><div class="spacer"></div><div class="leyenda" style="margin:0"><span><i style="background:var(--alto)"></i>Alto</span><span><i style="background:var(--medio)"></i>Medio</span></div></div>${areaRiesgo(serie)}</div>
+    <div class="grid2">
+      <div class="card"><div class="card-hd"><div><h3>Origen de las detecciones</h3><div class="sub">Cómo encontró el dron cada caso</div></div></div>
+        <div class="row" style="gap:28px">${dona([[m.porOrigen.prediccion,'var(--accent)'],[m.porOrigen.patrulla,'var(--insp)']],totO)}
+          <div class="stack" style="gap:12px"><div><div class="row" style="gap:8px"><span class="chip c-primary"><span class="d"></span>Predicción</span><b class="num">${m.porOrigen.prediccion}</b></div><div class="tiny muted" style="margin-top:4px">Visita prioritaria por riesgo alto</div></div>
+          <div><div class="row" style="gap:8px"><span class="chip c-insp"><span class="d"></span>Patrulla</span><b class="num">${m.porOrigen.patrulla}</b></div><div class="tiny muted" style="margin-top:4px">Recorrido rutinario de camas</div></div></div></div></div>
+      <div class="card"><div class="card-hd"><div><h3>Alertas por tipo</h3><div class="sub">${plural(Object.values(m.porTipo).reduce((s,v)=>s+v,0),'alerta','alertas')} en la temporada</div></div></div>
+        ${Object.entries(m.porTipo).map(([t,n])=>`<div class="hbar"><span>${LABEL.tipo[t]}</span><div class="bar" style="--c:var(--accent)"><i style="width:${n/maxT*100}%"></i></div><b class="num" style="text-align:right">${n}</b></div>`).join('')}
+        <div class="small muted" style="margin-top:10px">Plantas afectadas en incidencias abiertas: <b style="color:var(--text)">${m.plantas}</b></div></div>
+    </div>
+  </div>`;
+}
+function areaRiesgo(serie){
+  if(serie.length<2) return `<div class="empty" style="padding:30px">${icoBox('chart','var(--accent)')}<div>Se mostrará cuando haya al menos dos días de cálculo.</div></div>`;
+  const W=900,H=240,pl=36,pr=12,pt=12,pb=26,n=serie.length,max=Math.max(4,...serie.map(s=>s.alto+s.medio));
+  const X=i=>pl+i/(n-1)*(W-pl-pr), Y=v=>pt+(1-v/max)*(H-pt-pb);
+  const linea=f=>serie.map((s,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(f(s)).toFixed(1)}`).join('');
+  const area=(fTop,fBot)=>`${linea(fTop)} ${serie.map((s,i)=>[i,s]).reverse().map(([i,s])=>`L${X(i).toFixed(1)},${Y(fBot(s)).toFixed(1)}`).join('')}Z`;
+  let g='';
+  for(let k=0;k<=4;k++){const v=max*k/4,y=Y(v);g+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" style="stroke:var(--border)"/><text x="${pl-8}" y="${y+4}" style="fill:var(--faint)" font-size="11" text-anchor="end">${Math.round(v)}</text>`;}
+  const cada=Math.max(1,Math.ceil(n/8));
+  serie.forEach((s,i)=>{if(i%cada===0||i===n-1)g+=`<text x="${X(i)}" y="${H-6}" style="fill:var(--faint)" font-size="11" text-anchor="${i===0?'start':i===n-1?'end':'middle'}">${Tiempo.corta(s.dia*24)}</text>`;});
+  g+=`<path d="${area(s=>s.alto+s.medio,s=>s.alto)}" style="fill:var(--medio)" opacity=".28"/><path d="${area(s=>s.alto,()=>0)}" style="fill:var(--alto)" opacity=".32"/>`;
+  g+=`<path d="${linea(s=>s.alto+s.medio)}" fill="none" style="stroke:var(--medio)" stroke-width="2"/><path d="${linea(s=>s.alto)}" fill="none" style="stroke:var(--alto)" stroke-width="2.2"/>`;
+  g+=serie.map((s,i)=>`<rect x="${X(i)-6}" y="${pt}" width="12" height="${H-pt-pb}" fill="transparent"><title>${Tiempo.corta(s.dia*24)} · alto ${s.alto} · medio ${s.medio}</title></rect>`).join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}">${g}</svg>`;
+}
+function dona(partes,total){
+  const r=48; let acc=0, g=`<circle r="${r}" fill="none" style="stroke:var(--card-3)" stroke-width="16"/>`;
+  if(total) for(const [v,c] of partes){ if(!v) continue; const frac=v/total*100;
+    g+=`<circle r="${r}" fill="none" style="stroke:${c}" stroke-width="16" pathLength="100" stroke-dasharray="${frac} ${100-frac}" stroke-dashoffset="${-acc}" transform="rotate(-90)"/>`; acc+=frac; }
+  return `<svg width="130" height="130" viewBox="-65 -65 130 130">${g}<text y="6" text-anchor="middle" font-size="22" font-weight="750" style="fill:var(--text)">${total}</text></svg>`;
+}
+
+/* ---------- render principal ---------- */
+const VISTAS={finca:vistaFinca,alertas:vistaAlertas,incidencias:vistaIncidencias,ventilacion:vistaVentilacion,analisis:vistaAnalisis};
+function render(){
+  renderNav(); renderTop();
+  if(UI.tab==='finca'&&UI.montada==='finca') actualizarFinca();
+  else{
+    document.getElementById('vista').innerHTML=VISTAS[UI.tab]();
+    UI.montada=UI.tab;
+    if(UI.tab==='finca'){ Mapa.bloquePrevio=null; Mapa.mount(document.getElementById('mapaHost')); actualizarFinca(); }
+  }
+  renderDrawer(); avisosCriticos();
+}
+function irA(tab){ UI.tab=tab; UI.montada=null; window.scrollTo({top:0}); }
+function avisosCriticos(){
+  const nuevas=Hub.alertas({severidad:'critica',orden:'recientes'}).filter(a=>!UI.criticasVistas.has(a.alerta_id));
+  nuevas.forEach(a=>UI.criticasVistas.add(a.alerta_id));
+  if(!UI.primera&&nuevas.length) toast(nuevas[0].titulo,nuevas[0].mensaje+(nuevas.length>1?` (+${nuevas.length-1} más)`:''),'var(--crit)','octagon');
+  UI.primera=false;
+}
+function toast(t,m,c='var(--accent)',i='check'){
+  const el=document.createElement('div'); el.className='toast';
+  el.innerHTML=`${icoBox(i,c,true,16)}<div><div class="tt">${esc(t)}</div><div class="small muted">${esc(m)}</div></div>`;
+  const box=document.getElementById('toasts'); box.appendChild(el); while(box.children.length>3) box.firstChild.remove();
+  setTimeout(()=>el.remove(),6500);
+}
+
+/* ---------- interacción ---------- */
+const ACCIONES={
+  tab:d=>{irA(d.v);render();},
+  bloque:d=>{UI.bloque=+d.v;render();},
+  cama:d=>abrirCama(d.v),
+  cerrar:()=>{cerrarDrawer();render();},
+  capa:d=>{Mapa.capa=d.v;render();},
+  vista:d=>{const v=CONFIG.mapa.vista_inicial; if(d.v==='plano')Mapa.animarA(0,90,Mapa.zoom); else Mapa.animarA(v.theta,v.elev,Mapa.zoom);},
+  zoom:d=>{Mapa.animarA(Mapa.theta,Mapa.elev,clamp(Mapa.zoom*(+d.v>0?1.25:0.8),0.6,2.6));},
+  resetVista:()=>{const v=CONFIG.mapa.vista_inicial;Mapa.animarA(v.theta,v.elev,v.zoom);},
+  tema:()=>{const t=document.documentElement.dataset.theme==='light'?'dark':'light';document.documentElement.dataset.theme=t;try{localStorage.setItem('bgi-tema',t);}catch(e){}render();},
+  alertaToggle:d=>{const id=+d.v;if(UI.abiertas.has(id))UI.abiertas.delete(id);else{UI.abiertas.add(id);Hub.marcarVista(id);}render();},
+  verAlerta:d=>{const a=Hub.alertas().find(x=>x.alerta_id===+d.v);irA(a&&TIPOS_TRAZA.includes(a.tipo)?'incidencias':'alertas');UI.abiertas.add(+d.v);Hub.marcarVista(+d.v);UI.filtros={estado:'todas',bloque:'todos'};UI.trazaTipo='todos';render();},
+  trazaTipo:d=>{UI.trazaTipo=d.v;render();},
+  resolver:d=>{if(Hub.resolver(+d.v,d.a)){toast('Alerta resuelta',LABEL.accion[d.a],'var(--ok)','check');UI.abiertas.delete(+d.v);}render();},
+  verMapa:d=>{irA('finca');abrirCama(d.v);},
+  verInc:d=>{irA('incidencias');UI.incFiltro='todas';UI.incSel=+d.v;render();},
+  filtro:d=>{UI.filtros[d.k]=d.v;render();},
+  incFiltro:d=>{UI.incFiltro=d.v;render();},
+  incSel:d=>{UI.incSel=+d.v;render();},
+  csv:()=>exportarCSV(),
+  vent:d=>{Hub.cambiarVentilacion(+d.b,+d.n,d.e);toast('Ventilación actualizada',`B${d.b} · Nave ${d.n}: ${d.e}`,'var(--info)','wind');render();},
+};
+document.addEventListener('click',e=>{
+  if(Mapa.suprimir&&e.target.closest('#m3d')){Mapa.suprimir=false;return;}
+  const el=e.target.closest('[data-act]'); if(!el) return;
+  const f=ACCIONES[el.dataset.act]; if(f) f(el.dataset,e);
+});
+document.addEventListener('change',e=>{const el=e.target;if(el.dataset.act==='filtroSel'){UI.filtros[el.dataset.k]=el.value;render();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&UI.cama){cerrarDrawer();render();}});
+
+const tip=document.getElementById('tip');
+document.addEventListener('mouseover',e=>{
+  if(Mapa.drag&&Mapa.movido) return;
+  const c=e.target.closest('[data-tip]'); if(!c){tip.style.display='none';return;}
+  const id=c.dataset.tip, h=Hub.ahora(), r=Hub.riesgoUltimo().mapa.get(id), v=Hub.variablesCama(id), cl=Hub.climaActual(id);
+  tip.innerHTML=`<div class="tiny muted">Bloque ${U.partes(id)[0]}</div><b>${esc(U.sinBloque(id))}</b><div class="kv">
+    <span>Riesgo 7 días</span><span style="color:${r?rgb(rampa(RAMPA_RIESGO,r.prob_ia_7d)):'inherit'}">${r?`${pct(r.prob_ia_7d)} · ${LABEL.nivel[r.nivel]}`:'—'}</span>
+    <span>Horas de mojado (72 h)</span><span>${v.wet72} h</span>
+    <span>Clima</span><span>${cl?`${cl.temp_c} °C · ${cl.hr} %`:'—'}</span>
+    <span>Medición</span><span>${cl?(cl.fuente==='sensor_fijo'?'Sensor del bloque':'Dron')+' · '+Tiempo.hace(cl.hora,h):'—'}</span></div>`;
+  tip.style.display='block';
+});
+document.addEventListener('mousemove',e=>{if(tip.style.display==='block'){const x=Math.min(e.clientX+16,innerWidth-250);tip.style.left=x+'px';tip.style.top=Math.min(e.clientY+16,innerHeight-150)+'px';}});
+
+/* ---------- arranque ---------- */
+(function(){
+  let t=null; try{t=localStorage.getItem('bgi-tema');}catch(e){}
+  if(!t) t=window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';
+  document.documentElement.dataset.theme=t;
+  let corrida=CONFIG.fuente.corrida; try{corrida=new URLSearchParams(location.search).get('corrida')||corrida;}catch(e){}
+  iniciar(corrida);
+  setInterval(()=>{
+    UI.acc+=CONFIG.fuente.horas_por_segundo*CONFIG.ui.tick_ms/1000; let n=0;
+    while(UI.acc>=1){UI.acc-=1;if(!src.step())break;n++;}
+    if(n) render();
+  },CONFIG.ui.tick_ms);
+})();
+</script>
+</body>
+</html>
