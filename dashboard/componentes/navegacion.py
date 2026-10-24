@@ -1,6 +1,7 @@
 """Menú lateral (pantallas, contadores y estado de red) y barra superior (título, reloj, tema y campana)."""
 import streamlit as st
 
+from dashboard import tour
 from dashboard.componentes.estado import Ctx, avisar, ir_a
 from dashboard.componentes.ui import css_icono, estilo, html, ic, ico_box
 from hub import alertas as A
@@ -16,6 +17,11 @@ TITULOS = {
     "ventilacion": ("Ventilación", "Control por nave para frenar el transporte de esporas"),
     "analisis": ("Análisis", "Desempeño del sistema en la temporada"),
 }
+CSS_REPRO = (".st-key-boton_tour button,.st-key-repro_play button,.st-key-repro_vivo button{height:40px;border-radius:12px!important;"
+             "background:var(--card)!important;border:1px solid var(--border)!important;color:var(--muted)!important;"
+             "box-shadow:var(--shadow);font-weight:600}"
+             ".st-key-boton_tour button:hover,.st-key-repro_play button:hover,.st-key-repro_vivo button:hover"
+             "{color:var(--text)!important;border-color:var(--border-2)!important}")
 MARCA = ('<div class="brand"><svg width="36" height="36" viewBox="0 0 36 36"><defs><linearGradient id="lg1" x1="0" y1="0" '
          'x2="1" y2="1"><stop offset="0" stop-color="#6E7BFF"/><stop offset="1" stop-color="#A57BFF"/></linearGradient></defs>'
          '<rect width="36" height="36" rx="11" fill="url(#lg1)"/><circle cx="14" cy="20" r="7" fill="#fff" opacity=".92"/>'
@@ -85,6 +91,7 @@ def barra_superior(ctx: Ctx) -> None:
         html(f'<div class="top"><h1>{titulo}</h1><div class="sub">{sub}</div></div>', width="stretch")
         html(f'<div class="clock">{ic('clock', 18)}<div><div class="t">{T.hhmm(ctx.ahora)}</div>'
              f'<div class="d">{T.fecha_larga(ctx.ahora, ctx.ini)}</div></div></div>', width="content")
+        _controles_tour(ctx)
         if st.button("Cambiar tema", key="boton_tema", help="Cambiar tema"):
             st.session_state.tema = "light" if st.session_state.tema == "dark" else "dark"
             st.rerun()
@@ -92,3 +99,21 @@ def barra_superior(ctx: Ctx) -> None:
             ir_a("alertas")
             st.rerun()
 
+
+
+def _controles_tour(ctx: Ctx) -> None:
+    """Botón ▶ Tour y, si la corrida se reproduce con tope fuera del tour, play / pausa y volver a en vivo."""
+    estilo(CSS_REPRO)
+    ss = st.session_state
+    if tour.repro_activa(ctx.corrida) and not ss.tour:
+        play = ss.repro["play"]
+        if st.button("❚❚ Pausa" if play else "▶ Play", key="repro_play", help="Pausar o seguir la reproducción de la corrida"):
+            tour.play_pausa()
+            st.rerun()
+        if st.button("● En vivo", key="repro_vivo", help="Mostrar todo lo escrito en la base"):
+            tour.en_vivo()
+            st.rerun()
+    if st.button("▶ Tour", key="boton_tour", help="Tour guiado (reinicia la corrida demo desde la hora 0)"):
+        ss.tour_auto = True
+        tour.iniciar()
+        st.rerun()

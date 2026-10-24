@@ -10,6 +10,7 @@ INICIAL = {
     "tab": "finca", "bloque": 1, "cama": None, "abiertas": set(), "f_estado": "todas", "f_bloque": "todos",
     "traza": "todos", "inc_filtro": "abiertas", "inc_sel": None, "criticas_vistas": set(), "primera": True,
     "tema": "dark", "ult_click": None, "aviso": None,
+    "tour": None, "repro": None, "corrida_tour": None, "tour_auto": False, "mapa_capa": None,   # dashboard/tour
 }
 
 
@@ -35,8 +36,15 @@ def iniciar() -> None:
             st.session_state[k] = v.copy() if isinstance(v, set) else v
 
 
+def aplicar_tope(corrida: str) -> None:
+    """Tope de reproducción de la sesión (tour guiado) para las consultas de esta corrida; None = en vivo."""
+    r = st.session_state.get("repro")
+    db.fijar_tope(r["tope"] if r and r["corrida"] == corrida else None)
+
+
 def contexto(corrida: str) -> Ctx:
-    """Contexto con la hora y la red actuales."""
+    """Contexto con la hora y la red actuales (con el tope de reproducción aplicado)."""
+    aplicar_tope(corrida)
     return Ctx(corrida, db.ahora(corrida), db.inicio_sim(corrida), db.red(corrida), cargar())
 
 

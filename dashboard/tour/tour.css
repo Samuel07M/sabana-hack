@@ -1,0 +1,45 @@
+/* Tour guiado: overlay, spotlight y recuadro (se inyecta en la página de Streamlit). Tipografía del sistema, sin fuentes externas. */
+#bgi-tour{--bgi-acento:var(--accent,#6E7BFF);--bgi-acento-2:#8B5CF6;--bgi-fondo:#121528;--bgi-borde:rgba(255,255,255,.10);
+  position:fixed;inset:0;z-index:2147483640;pointer-events:none;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+#bgi-tour .bgi-bloqueo{position:fixed;inset:0;pointer-events:auto;background:transparent;transition:background .25s ease}
+#bgi-tour.sin-target .bgi-bloqueo{background:rgba(0,0,0,.7)}
+#bgi-tour .bgi-spot{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(0,0,0,.7);pointer-events:none;
+  transition:left .25s ease,top .25s ease,width .25s ease,height .25s ease,opacity .25s ease}
+#bgi-tour .bgi-spot::after{content:"";position:absolute;inset:-3px;border-radius:inherit;border:2px solid var(--bgi-acento);
+  animation:bgi-pulso 1.8s ease-in-out infinite}
+#bgi-tour.sin-target .bgi-spot{opacity:0}
+@keyframes bgi-pulso{0%,100%{opacity:1;box-shadow:0 0 0 0 color-mix(in srgb,var(--bgi-acento) 55%,transparent)}
+  50%{opacity:.55;box-shadow:0 0 0 8px color-mix(in srgb,var(--bgi-acento) 0%,transparent)}}
+
+#bgi-tour .bgi-box{position:fixed;z-index:2147483647;pointer-events:auto;box-sizing:border-box;width:min(360px,calc(100vw - 32px));
+  padding:18px 20px 16px;border-radius:16px;background:var(--bgi-fondo);color:#fff;border:1px solid var(--bgi-borde);
+  box-shadow:0 24px 60px -12px rgba(0,0,0,.6);outline:none;overflow:hidden;transition:left .25s ease,top .25s ease}
+#bgi-tour .bgi-prog{position:absolute;left:0;right:0;top:0;height:3px;background:rgba(255,255,255,.08)}
+#bgi-tour .bgi-prog i{display:block;height:100%;background:linear-gradient(90deg,var(--bgi-acento),var(--bgi-acento-2));transition:width .25s ease}
+#bgi-tour .bgi-n{font-size:13px;font-weight:600;letter-spacing:.04em;color:rgba(255,255,255,.6);margin:4px 0 6px}
+#bgi-tour h2{font-size:22px;line-height:1.25;font-weight:700;margin:0 0 8px;color:#fff;letter-spacing:-.01em;padding:0}
+#bgi-tour p{font-size:17px;line-height:1.45;margin:0 0 12px;color:rgba(255,255,255,.88)}
+#bgi-tour .bgi-reloj,#bgi-tour .bgi-busca{display:flex;align-items:center;gap:8px;font-size:14px;color:rgba(255,255,255,.65);
+  margin:0 0 12px;font-variant-numeric:tabular-nums}
+#bgi-tour .bgi-busca b{color:#fff;font-weight:650}
+#bgi-tour .bgi-giro{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.2);border-top-color:var(--bgi-acento);
+  animation:bgi-giro .8s linear infinite;flex:none}
+@keyframes bgi-giro{to{transform:rotate(360deg)}}
+#bgi-tour .bgi-btns{display:flex;align-items:center;gap:8px}
+#bgi-tour .bgi-btns span{flex:1}
+#bgi-tour button{font:inherit;font-size:15px;font-weight:600;padding:8px 14px;border-radius:10px;cursor:pointer;
+  border:1px solid var(--bgi-borde);background:rgba(255,255,255,.06);color:#fff;transition:background .15s,opacity .15s}
+#bgi-tour button:hover:not(:disabled){background:rgba(255,255,255,.12)}
+#bgi-tour button.pri{background:var(--bgi-acento);border-color:transparent}
+#bgi-tour button.pri:hover:not(:disabled){background:color-mix(in srgb,var(--bgi-acento) 85%,#fff)}
+#bgi-tour button.lnk{background:transparent;border-color:transparent;color:rgba(255,255,255,.6);padding-left:0}
+#bgi-tour button.lnk:hover{background:transparent;color:#fff}
+#bgi-tour button:disabled{opacity:.4;cursor:default}
+#bgi-tour button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+
+@media (prefers-reduced-motion:reduce){
+  #bgi-tour .bgi-spot,#bgi-tour .bgi-box,#bgi-tour .bgi-bloqueo,#bgi-tour .bgi-prog i{transition:none}
+  #bgi-tour .bgi-spot::after{animation:none}
+  #bgi-tour .bgi-giro{animation-duration:2.4s}
+}

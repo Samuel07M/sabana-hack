@@ -203,3 +203,9 @@ dashboard:
     dias_riesgo: 14
     max_historial_ventilacion: 20
     top_camas: 6
+  tour:                                 # dashboard/tour · tour guiado del pitch (pasos en dashboard/tour/pasos.py)
+    corrida: demo                       # fuente: supuesto · corrida que reproduce (python -m sim.run_vivo --velocidad 0)
+    ms_por_hora: 100                    # fuente: supuesto · avance acelerado entre hitos: 1 h simulada cada 100 ms
+    horas_por_segundo_play: 1           # fuente: supuesto · play normal al salir del tour (= run_vivo --velocidad 1)
+    espera_target_ms: 2000              # fuente: supuesto · espera del elemento destacado antes de centrar el recuadro
+    espera_vivo_s: 3                    # fuente: supuesto · sin hito y sin datos nuevos en este tiempo, el paso se muestra igual

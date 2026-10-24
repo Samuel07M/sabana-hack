@@ -231,6 +231,7 @@ button [data-testid="stMarkdownContainer"],[data-baseweb="select"] [data-testid=
 [data-testid="stToast"]{background:var(--card)!important;border:1px solid var(--border-2);border-radius:16px!important;color:var(--text)!important;box-shadow:0 20px 50px -18px rgba(0,0,0,.55)}
 [data-testid="stToast"] *{color:var(--text)}
 iframe{color-scheme:normal;background:transparent!important}[data-testid="stCustomComponentV1"],iframe[title*="mapa3d"]{border:0;display:block}
+.st-key-tour_comp{position:absolute!important;width:0!important;height:0!important;overflow:hidden;pointer-events:none}
 .st-key-top{padding:28px 0 26px}
 .st-key-top [data-testid="stHorizontalBlock"]{align-items:center}
 .st-key-boton_tema button,.st-key-campana button{width:40px;height:40px;padding:0!important;justify-content:center;border-radius:12px!important;background:var(--card)!important;border:1px solid var(--border)!important;color:var(--muted)!important;box-shadow:var(--shadow);position:relative}
