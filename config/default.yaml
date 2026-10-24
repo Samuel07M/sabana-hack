@@ -52,8 +52,8 @@ enfermedad:                             # Botrytis cinerea (moho gris)
   corte_nucleo: 0.05                    # fuente: supuesto · pesos menores se descartan (matriz dispersa)
   L_aire_camas: 3.0                     # fuente: supuesto · esporas viajan por aire (PDF: gran potencial de salto)
   beta_vec: 0.00294                     # fuente: calibrado (python -m sim.calibracion) · cama contigua 5,5 % en 7 días con f_ambiental = 1
-  beta_aire: 0.3                        # fuente: calibrado · barrido sobre sensor_central (semillas 0-5) hasta 5-15 % afectadas
-  beta_0: 6.5e-5                        # fuente: calibrado · conidios casi uniformes en el aire del invernadero (PDF)
+  beta_aire: 0.1                        # fuente: calibrado · barrido sobre sensor_central (semillas 0-29): media ≈ 9 % afectadas; con 0,3 el aire saturaba una nave en horas
+  beta_0: 1.0e-4                        # fuente: calibrado · conidios casi uniformes en el aire del invernadero (PDF)
   peso_latente: 0.5                     # fuente: supuesto
   peso_sintomas: 1.0                    # fuente: supuesto
   latencia_dias: [7, 14]                # fuente: supuesto · PDF: no verificado en arándano; su ejemplo usa 14
@@ -77,12 +77,12 @@ drones:
   sens_latente: 0.25                    # fuente: supuesto
   sens_sintomas: 0.90                   # fuente: supuesto · moho gris-pardo visible en flores y frutos (PDF)
   especificidad: 0.98                   # fuente: supuesto · de la verificación de una sospecha (P[descartar un falso positivo])
-  tasa_falsa_deteccion_planta: 1.0e-5   # fuente: supuesto · P[que la cámara marque una planta sana] por inspección
+  tasa_falsa_deteccion_planta: 4.0e-6   # fuente: supuesto · P[que la cámara marque una planta sana] por inspección
   horas_verificacion: 1                 # fuente: supuesto · tiempo entre la sospecha y su verificación
   dias_revisita: 3                      # fuente: supuesto
   limpias_para_cerrar: 2                # fuente: supuesto
   horas_hasta_tratamiento: 6            # fuente: supuesto
-  horas_sin_visita_prioridad: 24        # fuente: supuesto
+  horas_sin_visita_prioridad: 6         # fuente: supuesto · con 24 h la prioridad nunca se activa (la patrulla pasa cada 7,2 h): ver NOTAS.md
   horas_ventilacion_apagada: 48         # fuente: supuesto
   bateria_horas: 6                      # fuente: supuesto
   bateria_min: 0.15                     # fuente: supuesto · fracción de carga

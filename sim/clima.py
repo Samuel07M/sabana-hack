@@ -14,22 +14,24 @@ def generar(cfg: dict, geo, n_horas: int, rng: np.random.Generator) -> tuple[np.
     HR = (c["HR_media"] - c["A_HR"] * fase + off_HR + c["extra_borde_hr"] * geo.es_borde_c[None, :]
           + rng.normal(0, c["ruido_HR_sd"], forma))
     bloques = geo.bloque_c.max()
-    HR += c["subida_evento_hr"] * eventos_humedos(cfg, n_horas, bloques, rng)[:, geo.bloque_c - 1]
+    HR += subidas_humedas(cfg, n_horas, bloques, rng)[:, geo.bloque_c - 1]
     return T.astype(np.float32), HR.astype(np.float32)
 
 
-def eventos_humedos(cfg: dict, n_horas: int, n_bloques: int, rng: np.random.Generator) -> np.ndarray:
-    """Máscara (horas, bloques) de eventos húmedos aleatorios más los forzados de la config."""
+def subidas_humedas(cfg: dict, n_horas: int, n_bloques: int, rng: np.random.Generator) -> np.ndarray:
+    """Subida de HR (horas, bloques) por eventos húmedos aleatorios más los forzados de la config."""
     c = cfg["clima"]
-    mascara = np.zeros((n_horas, n_bloques), dtype=bool)
+    subida = np.zeros((n_horas, n_bloques))
     dmin, dmax = c["duracion_evento_h"]
     inicios = rng.random((n_horas, n_bloques)) < c["eventos_humedos_por_dia"] / 24
     duraciones = rng.integers(dmin, dmax + 1, (n_horas, n_bloques))
     for hora, b in zip(*np.nonzero(inicios)):
-        mascara[hora:hora + duraciones[hora, b], b] = True
+        subida[hora:hora + duraciones[hora, b], b] = c["subida_evento_hr"]
     for ev in c["eventos_forzados"]:
-        mascara[ev["hora"]:ev["hora"] + ev["duracion_h"], ev["bloque"] - 1] = True
-    return mascara
+        s = ev.get("subida_hr", c["subida_evento_hr"])
+        sl = slice(ev["hora"], ev["hora"] + ev["duracion_h"])
+        subida[sl, ev["bloque"] - 1] = np.maximum(subida[sl, ev["bloque"] - 1], s)
+    return subida
 
 
 def es_hora_de_riego(cfg: dict, hora: int) -> bool:

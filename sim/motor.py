@@ -120,10 +120,12 @@ class Simulacion:
 
     def _cola_sync(self, origen: str, hora: int, tipo: str, payload: dict) -> None:
         """cola_sync: en vivo la llena el simulador con hora_recibida NULL; con celular espera la pasada."""
+        if self.modo == "experimento":
+            return                                   # las corridas de validación no necesitan la cola
         fila = [self._id("cola"), self.corrida_id, origen, hora, None, tipo, json.dumps(payload, ensure_ascii=False)]
         if self.flags["celular"]:
             self.cola_sync_pend.append(fila)
-        elif self.modo == "vivo":
+        else:
             self.buf["cola_sync"].append(tuple(fila))
 
     def _tocar(self, inc: dict) -> None:

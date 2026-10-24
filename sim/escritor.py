@@ -14,8 +14,14 @@ def crear_base(ruta: Path, cfg: dict) -> sqlite3.Connection:
     """Recrea la base en `ruta` con el esquema del contrato, WAL y busy_timeout."""
     ruta = Path(ruta)
     ruta.parent.mkdir(parents=True, exist_ok=True)
-    for sufijo in ("", "-wal", "-shm"):
-        Path(str(ruta) + sufijo).unlink(missing_ok=True)
+    if ruta.exists():
+        print(f"aviso: {ruta} ya existía y se recrea desde contrato/schema.sql")
+    try:
+        for sufijo in ("", "-wal", "-shm"):
+            Path(str(ruta) + sufijo).unlink(missing_ok=True)
+    except PermissionError as e:
+        raise PermissionError(f"no se puede recrear {ruta}: otro programa la tiene abierta (¿el dashboard?). "
+                              "Ciérralo y vuelve a correr.") from e
     con = sqlite3.connect(ruta)
     con.execute("PRAGMA journal_mode=WAL")
     con.execute(f"PRAGMA busy_timeout={int(cfg['base_datos']['busy_timeout_ms'])}")
