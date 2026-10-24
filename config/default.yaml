@@ -152,10 +152,10 @@ dashboard:
       T_opt: 18.0                       # fuente: supuesto
       T_ancho: 6.0                      # fuente: supuesto
       horas_mojado_full: 10             # fuente: supuesto · horas de mojado en 24 h para factor 1
-      beta_vec: 0.05                    # fuente: supuesto · plantas vecinas en la cama (±2 posiciones)
+      beta_vec: 0.008                   # fuente: supuesto · plantas vecinas en la cama (±2 posiciones); el prototipo usaba 0,05 con un clima más seco
       peso_cama_vecina: 0.4             # fuente: supuesto · plantas de las camas contiguas (±1 posición)
-      beta_aire: 0.002                  # fuente: supuesto · corriente de aire hacia las camas siguientes
-      beta_0: 2.0e-6                    # fuente: supuesto · fondo
+      beta_aire: 0.0005                 # fuente: supuesto · corriente de aire hacia las camas siguientes
+      beta_0: 5.0e-7                    # fuente: supuesto · fondo
       peso_foco_borde: 0.6              # fuente: supuesto · P[foco aleatorio en cama de borde]
       dias_ventana_foco: 10             # fuente: supuesto · focos aleatorios en los primeros días
     drones:
@@ -169,7 +169,7 @@ dashboard:
       ventana_h: 72
       umbral_mojado_reglas_h: 20
       bonus_vecina: 0.5
-      a0: -5.2
+      a0: -6.0                          # prototipo: -5,2; recalibrado al clima de arriba (HR 88 %, umbral 95 %)
       a_mojado: 0.16
       a_temp: 1.5
       a_borde: 0.8
