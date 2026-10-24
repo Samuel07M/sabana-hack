@@ -18,6 +18,23 @@ Lee primero `CLAUDE.md` (contrato de datos y convenciones) y `planSantiago.md` (
 
 ---
 
+## Decisiones del prototipo aprobado (24 oct)
+
+`dashboard/prototipo.html` es la versión aprobada del dashboard y se migró a Streamlit (`dashboard/app.py` + `dashboard/componentes/`). Donde este plan y el prototipo no coinciden en interfaz o comportamiento, manda el prototipo, salvo las reglas fijas (ventilación automática, números de `config/default.yaml`, contrato sin cambios).
+
+- **No hay pantalla Conectividad.** El estado de red va en el pie del menú lateral: "Hub local en línea" o "Sin red · N datos en los drones". En sin red, ahí mismo está el botón *Pasa el celular* (NOTAS.md, decisión 13). Reemplaza el panel de sincronización de la Fase 4.2.
+- **Pantallas:** Panorama, Alertas, Incidencias, Ventilación y Análisis. La pestaña de evidencia de la Fase 5 queda fuera.
+- **Alertas solo muestra `riesgo_7d` y `confirmacion`**, en dos columnas ("Enfermedad confirmada" y "Posible enfermedad"). El contador del menú y la campana cuentan solo las nuevas de esos dos tipos. Las tarjetas se expanden; al abrirlas pasan a `vista`.
+- **Trazabilidad va dentro de Incidencias:** alertas `seguimiento`, `ventilacion` y `descartada`, con filtro por tipo y las mismas tarjetas que Alertas.
+- **Panorama va sin recuadros y sin "Actividad reciente":** KPIs, mapa 3D, tarjeta del dron, "Camas a vigilar" y los 4 bloques como mini mapas de calor.
+- **Mapa 3D como componente propio** (`dashboard/componentes/mapa3d/`, `declare_component(path=...)` sobre un `index.html` local, sin npm, sin build y sin CDN). Reemplaza la cuadrícula Plotly de la Fase 2.2. Devuelve la cama clicada y guarda el giro y el zoom entre refrescos.
+- **La corrida se elige por URL** (`?corrida=demo | temporada-7 | celular-12`, por defecto `dashboard.corrida_por_defecto`). Reemplaza el selector de corrida de la barra superior (Fase 2.1).
+- **Ventilación sin interruptores ni "Encender de nuevo"**: es automática (NOTAS.md, decisión 4); la alerta `ventilacion` solo tiene `entendido`.
+- **Detalle de cama** en `st.dialog(position="right")`, con gráficas SVG portadas del prototipo (sin Plotly).
+- **Datos de prueba:** `hub/mock.py` porta `FuenteLocal` del prototipo (corridas `demo`, `temporada-7` y `celular-12`). Los parámetros del prototipo que no existen en el YAML viven en `dashboard.mock`, `dashboard.mapa` y `dashboard.ui`, con `# fuente: supuesto`.
+
+---
+
 ## Fase 0 · Decisiones abiertas con Santiago (22:00–22:30)
 
 Los documentos se contradicen o no definen estos puntos. **No empiezo a codificar la parte afectada hasta cerrarlos.** Anoto la respuesta en `NOTAS.md`.

@@ -50,6 +50,9 @@ Acordado el viernes 23 de octubre, ~22:30. Responde la Fase 0 de `planSamuel.md`
 30. **(24 oct) Calibración corregida contra el PDF.** El 5,5 % del PDF es la probabilidad de que **la cama** contigua se infecte, no la fracción de sus plantas: `beta_vec` pasa de 0,00294 a **7,08e-5** (42× menor). El contagio dentro de la cama pasa a un parámetro propio, **`beta_cama` = 0,002529**, calibrado con la otra meta del PDF (logística r = 0,2/día). Así reemplaza el punto 22 para `beta_vec`. `beta_aire` y `beta_0` no cambian: ya dan ≈ 9,7 % en `sensor_central`. **Declararlo en el pitch:** con el clima simulado, las tasas del PDF solas propagan muy poco (0,02 %); la mayor parte del contagio viene del transporte por aire, que el PDF no cuantifica (supuesto).
 29. **Pendiente, cuando Samuel suba su código:** cambiar el vocabulario de **dron → robot de riel** en todo (textos, docs y contrato: tabla `drones`, `dron_id`, fuente `'dron:B1'`).
 
+## F. Notas de Samuel
+30. **(24 oct) Datos de prueba del dashboard:** `python -m hub.mock` genera `data/mock.db` (corridas `demo`, `temporada-7` y `celular-12`, con `contrato/schema.sql` tal cual) y `python -m hub.mock --vivo --corrida demo` la escribe en vivo. El dashboard cambia de base con `FINCA_DB` (`$env:FINCA_DB = "data\mock.db"`; por defecto `data\finca.db`) y de corrida con `?corrida=` en la URL.
+
 ## D. Datos biológicos (`Scientificic information.pdf`, Sara B.)
 15. Parámetros del PDF pasados a `config/default.yaml`. Cambios que afectan a Samuel:
     - **Renombrado:** `clima.umbral_mojado_hr` → **`mojado.umbral_hr`**, ahora **95 %** (Broome), no 90 %. Ajustar la línea de umbral del detalle de cama (`planSamuel.md`, 2.3).
