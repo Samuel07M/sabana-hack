@@ -9,7 +9,12 @@ CONFIG_DEFAULT = RAIZ / "config" / "default.yaml"
 
 
 @lru_cache(maxsize=1)
-def cargar() -> dict:
-    """Lee config/default.yaml (utf-8) una sola vez por proceso."""
+def _leer(mtime_ns: int) -> dict:
+    """Lee config/default.yaml (utf-8); la caché se renueva cuando cambia la fecha de modificación."""
     with open(CONFIG_DEFAULT, encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
+
+
+def cargar() -> dict:
+    """Configuración vigente: se relee si el YAML cambió (Streamlit no reinicia el proceso al editarlo)."""
+    return _leer(CONFIG_DEFAULT.stat().st_mtime_ns)
