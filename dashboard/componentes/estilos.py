@@ -68,7 +68,7 @@ PROTOTIPO = """
 .c-info{--c:var(--info)} .c-advertencia{--c:var(--adv)} .c-critica{--c:var(--crit)}
 .c-ok{--c:var(--ok)} .c-primary{--c:var(--accent)} .c-insp{--c:var(--insp)} .c-mute{--c:var(--faint)}
 .bar{height:6px;background:var(--card-3);border-radius:999px;overflow:hidden}
-.bar>i{display:block;height:100%;background:var(--c,var(--accent));border-radius:999px;transition:width .4s}
+.bar>i{display:block;height:100%;background:var(--c,var(--accent));border-radius:999px}
 .empty{text-align:center;padding:46px 20px;color:var(--muted)}
 .empty .ico-box{margin:0 auto 12px;width:48px;height:48px;border-radius:14px}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px;margin-bottom:26px}
