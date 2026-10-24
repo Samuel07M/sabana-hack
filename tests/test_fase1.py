@@ -70,7 +70,8 @@ def test_run_temporada_dias_1(tmp_path):
     filas = escritor.contar_filas(con)
     con.close()
     assert filas["corridas"] == 1 and filas["camas"] == 288
-    assert sum(n for t, n in filas.items() if t not in ("corridas", "camas")) == 0
+    assert filas["lecturas"] >= 24 * 4                      # un sensor central por bloque por hora
+    assert (tmp_path / "verdad_temporada-7.parquet").exists()
 
 
 def test_escenario_invalido_en_el_escritor(cfg, tmp_path):
