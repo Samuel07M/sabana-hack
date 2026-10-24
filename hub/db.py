@@ -3,12 +3,14 @@
 Todas reciben `corrida_id` y devuelven DataFrames. Nunca devuelven incidencias.verdad_infectada.
 En modo sin red (escenario robots_celular) se oculta lo posterior a la última sincronización
 (NOTAS.md, decisión 7); el sensor fijo del bloque sigue visible, como en el prototipo.
+Con un tope de reproducción (tour guiado, fijar_tope) también se oculta lo posterior al tope.
 """
 import json
 import math
 import os
 import sqlite3
 from contextlib import closing
+from contextvars import ContextVar
 from pathlib import Path
 
 import pandas as pd
@@ -27,6 +29,8 @@ TIPOS_ALERTA = ("riesgo_7d", "confirmacion", "seguimiento", "ventilacion", "desc
 SEV_RANK = {"critica": 0, "advertencia": 1, "info": 2}
 CERRADAS = ("cerrada", "descartada")
 SIN_CORTE = math.inf
+EPS_TOPE = 1e-6   # lo escrito justo a la hora del tope se ve
+_TOPE: ContextVar[float | None] = ContextVar("tope", default=None)
 
 
 # ── conexión ─────────────────────────────────────────────────────────────────
@@ -101,19 +105,37 @@ def red(corrida_id: str) -> str:
     return "sin_red" if esc == "robots_celular" else "local"
 
 
+def fijar_tope(hora: float | None) -> None:
+    """Reproducción: oculta todo lo posterior a `hora` en esta sesión (None = en vivo)."""
+    _TOPE.set(None if hora is None else float(hora))
+
+
+def tope() -> float | None:
+    """Tope de reproducción actual (None = en vivo)."""
+    return _TOPE.get()
+
+
 def ahora(corrida_id: str) -> float:
-    """Hora simulada actual: la mayor hora escrita en lecturas o robots."""
+    """Hora simulada actual: la mayor hora escrita en lecturas o robots (sin pasar del tope)."""
+    h, t = ahora_real(corrida_id), tope()
+    return h if t is None else min(h, t)
+
+
+def ahora_real(corrida_id: str) -> float:
+    """La mayor hora escrita en lecturas o robots, sin tope de reproducción."""
     v = _uno("SELECT MAX(h) FROM (SELECT MAX(hora) h FROM lecturas WHERE corrida_id=? "
              "UNION ALL SELECT MAX(hora) FROM robots WHERE corrida_id=?)", (corrida_id, corrida_id))
     return float(v) if v is not None else 0.0
 
 
 def corte(corrida_id: str) -> float:
-    """Primera hora oculta: sin red, la hora siguiente a la última sincronización; con red, infinito."""
+    """Primera hora oculta: sin red, la hora siguiente a la última sincronización; con red, infinito (o el tope)."""
+    t = tope()
+    lim = SIN_CORTE if t is None else t + EPS_TOPE
     if red(corrida_id) != "sin_red":
-        return SIN_CORTE
+        return lim
     v = _uno("SELECT MAX(hora_recibida) FROM cola_sync WHERE corrida_id=?", (corrida_id,))
-    return float(v) + 1 if v is not None else -math.inf
+    return min(lim, float(v) + 1) if v is not None else -math.inf
 
 
 def _lim(c: float) -> float:
@@ -323,11 +345,13 @@ def incidencias(corrida_id: str, cama_id: str | None = None, bloque: int | None 
     c = corte(corrida_id)
     df = _q(f"SELECT {','.join(COLS_INC)} FROM incidencias WHERE corrida_id=? AND hora_creada < ?",
             (corrida_id, _lim(c)))
-    if c != SIN_CORTE and len(df):
+    if red(corrida_id) == "sin_red" and len(df):
         fotos = _fotos_recibidas(corrida_id)
         if fotos:
             filas = [fotos.get(int(r["incidencia_id"]), r.to_dict()) for _, r in df.iterrows()]
             df = pd.DataFrame(filas, columns=list(COLS_INC))
+    if tope() is not None and len(df):
+        df = _al_tope(corrida_id, df, tope())
     if cama_id:
         df = df[df["cama_id"] == cama_id]
     if bloque is not None:
@@ -339,6 +363,31 @@ def incidencias(corrida_id: str, cama_id: str | None = None, bloque: int | None 
     elif grupo == "descartadas":
         df = df[df["estado"] == "descartada"]
     return df.sort_values(["hora_creada", "incidencia_id"], ascending=False, ignore_index=True)
+
+
+def _al_tope(corrida_id: str, df: pd.DataFrame, t: float) -> pd.DataFrame:
+    """Incidencias como estaban a la hora t: estado y horas posteriores al tope se deshacen."""
+    segs = _q("SELECT incidencia_id, MIN(hora) h FROM seguimientos WHERE corrida_id=? GROUP BY incidencia_id",
+              (corrida_id,))
+    primer_seg = dict(zip(segs["incidencia_id"].astype(int), segs["h"]))
+    df = df.copy()
+    for i, r in df.iterrows():
+        cerrada = pd.notna(r["hora_cerrada"]) and r["hora_cerrada"] <= t
+        confirmada = pd.notna(r["hora_confirmada"]) and r["hora_confirmada"] <= t
+        seg = primer_seg.get(int(r["incidencia_id"]))
+        if cerrada:
+            continue
+        if not confirmada:
+            estado = "sospecha"
+        elif seg is None or seg > t:
+            estado = "confirmada"
+        else:
+            estado = r["estado"] if r["estado"] not in CERRADAS else "en_seguimiento"
+        df.at[i, "estado"] = estado
+        if not confirmada:
+            df.at[i, "hora_confirmada"] = None
+        df.at[i, "hora_cerrada"] = None
+    return df
 
 
 def seguimientos(corrida_id: str, incidencia_id: int | None = None) -> pd.DataFrame:
