@@ -46,7 +46,7 @@ def test_tour_completo(finca_db):
     assert vistos == list(range(len(PASOS)))
     demo = [h for h in topes if h is not None]
     assert demo == sorted(demo)                         # la simulación nunca retrocede
-    assert at.session_state["repro"]["play"] is False   # al salir queda en pausa
+    assert at.session_state["repro"]["play"] is True    # al salir la simulación sigue corriendo
 
 
 def test_paso_por_url_y_anterior(finca_db):
@@ -91,3 +91,29 @@ def test_tope_oculta_lo_posterior(finca_db):
     finally:
         db.fijar_tope(None)
     assert db.ahora("demo") == db.ahora_real("demo")
+
+
+def test_bateria_en_porcentaje():
+    from dashboard.componentes.panorama import bateria_pct
+    assert bateria_pct(0.8) == 80 and bateria_pct(1.0) == 100     # simulador: fracción
+    assert bateria_pct(52) == 52 and bateria_pct(100) == 100      # mock: porcentaje
+
+
+def test_selector_de_bloque(finca_db):
+    at = _app(corrida="demo", tour="0")
+    boton = [b for b in at.button if b.key == "sg_bloque_3"]
+    assert boton
+    boton[0].click().run()
+    assert not at.exception, at.exception
+    assert at.session_state["bloque"] == 3
+
+
+def test_play_vuelve_a_empezar_al_final(finca_db):
+    at, n = _app(paso="12"), [0]
+    at = _evento(at, "salir", n)
+    r = at.session_state["repro"]
+    assert r["play"] is True
+    real = db.ahora_real("demo")
+    r.update(tope=real, real=real, t_real=0.0)                     # llegó al final y la corrida ya no crece
+    at = _evento(at, "tick", n)
+    assert at.session_state["repro"]["tope"] == 0.0 and not at.exception

@@ -59,6 +59,7 @@ Acordado el viernes 23 de octubre, ~22:30. Responde la Fase 0 de `planSamuel.md`
     - **Sin modelo de IA entrenado**, el hub muestra `riesgo_reglas` donde `prob_ia_7d` viene vacío (`hub/db.py`, `_con_puntaje`): antes el Panorama y el detalle de cama se caían.
     - **Base real en un comando:** `python -m sim.preparar_base` (temporada-9 + celular-12); la demo se agrega con `run_vivo`.
     - **Prueba de integración** `tests/test_integracion.py`: el simulador escribe, el hub lee todas sus consultas y las 5 pantallas del tablero cargan, con y sin red.
+33. **(24 oct) Demo con los 4 bloques** (`config/demo.yaml`, `geometria.bloques: 1 → 4` y `semilla: 219 → 145`; aviso para Santiago). El Panorama necesitaba datos propios en los bloques 2–4 (cada uno con su robot). Con 4 bloques la 219 ya no daba la historia (con IA el robot la encontraba en patrulla); la 145 sí, con y sin IA: `riesgo_7d` 54 h (después de la noche húmeda) → robot en prioridad → confirmada → ventilación apagada → seguimiento `mejora` ≥ 3 días después (`tests/test_demo.py` pasa con y sin IA). `test_run_vivo_…` ya no fija 72 camas: las calcula de la geometría. La batería del robot se escribe como fracción 0–1 (el mock usa 0–100): el tablero acepta las dos.
 
 ## D. Datos biológicos (`Scientificic information.pdf`, Sara B.)
 15. Parámetros del PDF pasados a `config/default.yaml`. Cambios que afectan a Samuel:

@@ -57,7 +57,8 @@ def test_run_vivo_escribe_hora_a_hora_y_se_puede_leer_mientras_tanto(tmp_path):
     con = sqlite3.connect(db)
     assert con.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     assert con.execute("SELECT modo, escenario FROM corridas").fetchone() == ("vivo", "demo")
-    assert con.execute("SELECT COUNT(*) FROM camas").fetchone()[0] == 72
+    g = cargar_config(RAIZ / "config" / "demo.yaml")["geometria"]
+    assert con.execute("SELECT COUNT(*) FROM camas").fetchone()[0] == g["bloques"] * g["naves_por_bloque"] * g["camas_por_nave"]
     assert con.execute("SELECT COUNT(*) FROM cola_sync").fetchone()[0] == 0              # red local: sin cola
     assert con.execute("SELECT MAX(hora) FROM lecturas").fetchone()[0] == 59
     con.close()
