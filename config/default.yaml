@@ -7,11 +7,13 @@
 # ── Santiago ────────────────────────────────────────────────────────────────
 semilla: 7                              # fuente: supuesto
 sim: {dias: 60, inicio: "2026-11-01T00:00:00"}   # fuente: supuesto
+base_datos: {busy_timeout_ms: 5000}     # fuente: supuesto · espera si el dashboard está leyendo (WAL)
 geometria:
   bloques: 4                            # fuente: supuesto
   naves_por_bloque: 6                   # fuente: supuesto
   camas_por_nave: 12                    # fuente: supuesto
   plantas_por_cama: 40                  # fuente: supuesto
+  tiene_ventilacion: true               # fuente: supuesto · todas las naves tienen ventilación controlable (contrato: camas.tiene_ventilacion)
   posiciones_esquina: [5, 5]            # fuente: supuesto · primeras y últimas 5 posiciones (es_borde_planta)
   separacion_camas_m: 1.8               # fuente: biología (Sara B.) [S]
   separacion_plantas_m: 0.5             # fuente: supuesto (el PDF no lo trae)
