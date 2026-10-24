@@ -30,8 +30,8 @@ class Paso:
 
 
 PASOS = [
-    Paso("bienvenida", "Berry Good Idea",
-         "Detecta Botrytis antes de que se vea. Veamos unos días reales del invernadero.",
+    Paso("bienvenida", "Atalaya",
+         "Detecta Botrytis, mildiú polvoso, Neofusicoccum y Phytophthora antes de que se vean. Veamos unos días del invernadero.",
          accion=A.pantalla("finca")),
     Paso("mapa", "Mapa de la finca",
          "Cada cama de la finca, con su nombre real: Bloque · Nave · Cama.",

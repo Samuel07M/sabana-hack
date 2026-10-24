@@ -42,6 +42,6 @@ def pantalla(ctx: Ctx) -> None:
                  'Baja la humedad de la nave, pero el aire lleva esporas a las camas siguientes.</span></div>'
                  '<div class="factor" style="align-items:flex-start"><span class="chip c-advertencia">Apagada</span>'
                  '<span class="muted">Frena el transporte de esporas, pero sube la humedad, sobre todo en los bordes.</span></div>'
-                 f'<div class="muted">Se apaga {horas} h de forma automática cuando se confirma Botrytis en la nave. '
+                 f'<div class="muted">Se apaga {horas} h de forma automática cuando se confirma una enfermedad en la nave. '
                  'Se vuelve a encender sola al terminar.</div></div></div>'
                  f'<div class="card"><div class="card-hd"><h3>Historial</h3></div>{tl}</div></div>')

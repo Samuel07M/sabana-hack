@@ -7,6 +7,7 @@ from dashboard.componentes.graficas import timeline_inc
 from dashboard.componentes.ui import C_INC, LABEL, V_INC, chip, clicable, css_icono, esc, estilo, f2, html, ico_box, mascara, nulo, plural
 from hub import alertas as A
 from hub import db
+from hub import enfermedades as E
 from hub import tiempo as T
 from hub import ubicacion as U
 
@@ -53,7 +54,8 @@ def _detalle(ctx: Ctx, todas) -> None:
     i = fila.iloc[0].to_dict()
     segs = db.seguimientos(ctx.corrida, int(i["incidencia_id"]))
     html(f'<div class="card-hd"><div><div class="h3">Incidencia #{int(i["incidencia_id"])}</div><div class="sub">'
-         f'{esc(U.legible(i["cama_id"]))} · posición {int(i["posicion"])}</div></div><div class="spacer"></div>'
+         f'{esc(E.de_cama(i["cama_id"]))} · {esc(U.legible(i["cama_id"]))} · posición {int(i["posicion"])}</div></div>'
+         '<div class="spacer"></div>'
          f'{chip(LABEL["inc"][i["estado"]], C_INC[i["estado"]])}</div>'
          + timeline_inc(i, segs, ctx.cfg["robots"]["horas_hasta_tratamiento"], ctx.ini))
     with st.container(horizontal=True, vertical_alignment="center", key="det_pie"):

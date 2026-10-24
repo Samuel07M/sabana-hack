@@ -141,6 +141,11 @@ dashboard:
     ventilacion: [entendido]
     descartada: [entendido]
   corrida_por_defecto: demo             # fuente: supuesto · se cambia con ?corrida= en la URL
+  enfermedades_por_bloque:              # fuente: supuesto · solo nombre en pantalla (hub/enfermedades.py): los datos son los de Botrytis
+    - Botrytis                          # Bloque 1 (la historia del tour)
+    - Mildiú polvoso                    # Bloque 2
+    - Neofusicoccum spp.                # Bloque 3
+    - Phytophthora cinnamomi            # Bloque 4
   mock:                                 # hub/mock.py · parámetros del prototipo que no existen arriba
     hora_inicial: 8                     # fuente: supuesto · --vivo empieza aquí
     horas_por_segundo: 1                # fuente: supuesto · ritmo de --vivo

@@ -6,11 +6,12 @@ from dashboard.componentes.graficas import gauge, grafica_clima, grafica_riesgo,
 from dashboard.componentes.ui import (ABIERTA, C_INC, LABEL, chip, color_riesgo, f1, f2, html, ic, ico_box, nulo, pct,
                                       plural)
 from hub import db
+from hub import enfermedades as E
 from hub import tiempo as T
 from hub import ubicacion as U
 
 
-def _factores(v: dict, umbral: float, horas_reglas: float) -> list[tuple]:
+def _factores(v: dict, umbral: float, horas_reglas: float, enfermedad: str) -> list[tuple]:
     """Filas de "Qué explica este riesgo" (misma lógica del prototipo)."""
     dist, edad = int(v["dist"]), v["edad"]
     delta = v["delta_hr"] or 0.0
@@ -21,8 +22,8 @@ def _factores(v: dict, umbral: float, horas_reglas: float) -> list[tuple]:
          + ("" if nulo(v["hr_max24"]) else f" · humedad máxima <b>{f1(v['hr_max24'])} %</b>")),
         ("activity", "var(--accent)", f"Cambio de humedad frente al día anterior <b>{'+' if delta >= 0 else ''}{f1(delta)} %</b>"),
         ("octagon", "var(--crit)" if dist < 99 else "var(--ok)",
-         "<b>Botrytis confirmada en esta cama</b>" if dist == 0 else
-         f"Botrytis confirmada a <b>{plural(dist, 'cama', 'camas')}</b> en la misma nave" if dist < 99 else
+         f"<b>{enfermedad} confirmada en esta cama</b>" if dist == 0 else
+         f"{enfermedad} confirmada a <b>{plural(dist, 'cama', 'camas')}</b> en la misma nave" if dist < 99 else
          "Sin casos confirmados en la nave"),
         ("robot", "var(--insp)", "Aún sin medición directa del robot: se usa el sensor del bloque" if nulo(edad) else
          f"Última medición directa del robot <b>hace {int(edad)} h</b>"),
@@ -47,7 +48,7 @@ def contenido(ctx: Ctx, cid: str) -> str:
     lc, sensor = lec[lec["serie"] == "cama"], lec[lec["serie"] == "sensor"]
     um = cfg["mojado"]["umbral_hr"]
     col = color_riesgo(r["prob_ia_7d"]) if r is not None else "var(--faint)"
-    fac = _factores(v, um, cfg["dashboard"]["mock"]["modelo_prueba"]["umbral_mojado_reglas_h"])
+    fac = _factores(v, um, cfg["dashboard"]["mock"]["modelo_prueba"]["umbral_mojado_reglas_h"], E.de_cama(cid))
     abiertas = "".join(chip(LABEL["inc"][e], C_INC[e]) for e in incs["estado"] if ABIERTA(e))
     dias = cfg["dashboard"]["ui"]["dias_riesgo"]
     tl = "".join(

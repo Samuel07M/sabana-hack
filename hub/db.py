@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from hub import tiempo
+from hub import enfermedades, tiempo
 from hub import ubicacion as U
 from hub.config import RAIZ, cargar
 from hub.variables import ESTADOS_CONFIRMADOS, SIN_CONFIRMADA, calcular
@@ -316,7 +316,7 @@ def alertas(corrida_id: str, severidad: str | None = None, estado: str | None = 
     if bloque not in (None, "todos", ""):
         sql += " AND cama_id LIKE ?"
         p.append(_bloque_like(int(bloque)))
-    df = _q(sql, p)
+    df = enfermedades.alertas(_q(sql, p))
     if orden == "recientes":
         return df.sort_values(["hora", "alerta_id"], ascending=False, ignore_index=True)
     df["_r"] = df["severidad"].map(SEV_RANK).fillna(9)
