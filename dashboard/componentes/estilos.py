@@ -43,7 +43,7 @@ PROTOTIPO = """
 .stack{display:flex;flex-direction:column;gap:18px;min-width:0}
 .num{font-variant-numeric:tabular-nums}
 .brand{display:flex;align-items:center;gap:12px;padding:0 8px}
-.brand .name{font-weight:700;font-size:15.5px;letter-spacing:-.01em;color:var(--text)}
+.brand .name{font-weight:700;font-style:italic;font-size:15.5px;letter-spacing:-.01em;color:var(--text)}
 .brand .sub{color:var(--muted);font-size:12px}
 .nav-t{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:0 12px 6px;font-weight:600}
 .side-foot{padding:14px;border-radius:16px;background:var(--card-2);border:1px solid var(--border)}

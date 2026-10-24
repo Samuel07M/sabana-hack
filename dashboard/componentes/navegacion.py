@@ -26,8 +26,8 @@ MARCA = ('<div class="brand"><svg width="36" height="36" viewBox="0 0 36 36"><de
          'x2="1" y2="1"><stop offset="0" stop-color="#6E7BFF"/><stop offset="1" stop-color="#A57BFF"/></linearGradient></defs>'
          '<rect width="36" height="36" rx="11" fill="url(#lg1)"/><circle cx="14" cy="20" r="7" fill="#fff" opacity=".92"/>'
          '<circle cx="22" cy="15" r="6" fill="#fff" opacity=".6"/><path d="M12.5 17.5l1.5 1 1.5-1" stroke="#6E7BFF" '
-         'stroke-width="1.4" fill="none" stroke-linecap="round"/></svg><div><div class="name">Berry Good Idea</div>'
-         '<div class="sub">Monitoreo de Botrytis</div></div></div>')
+         'stroke-width="1.4" fill="none" stroke-linecap="round"/></svg><div><div class="name">Atalaya</div>'
+         '<div class="sub">Sistema de Monitoreo</div></div></div>')
 
 
 def _css_nav(tab: str, n_alertas: int, hot: bool, n_inc: int) -> str:

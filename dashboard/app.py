@@ -1,4 +1,4 @@
-"""Dashboard de Berry Good Idea (Streamlit): migración de dashboard/prototipo.html.
+"""Dashboard de Atalaya (Streamlit): migración de dashboard/prototipo.html.
 
     $env:FINCA_DB = "data\\mock.db"; streamlit run dashboard/app.py
     Corrida por URL: ?corrida=demo | temporada-7 | celular-12
@@ -68,7 +68,7 @@ def principal(corrida: str) -> None:
 
 def main() -> None:
     """Arma la página."""
-    st.set_page_config(page_title="Berry Good Idea · Monitoreo", page_icon=ICONO, layout="wide",
+    st.set_page_config(page_title="Atalaya · Sistema de Monitoreo", page_icon=ICONO, layout="wide",
                        initial_sidebar_state="expanded")
     iniciar()
     estilos.inyectar(st.session_state.tema)
