@@ -51,7 +51,7 @@ Acordado el viernes 23 de octubre, ~22:30. Responde la Fase 0 de `planSamuel.md`
 29. **Pendiente, cuando Samuel suba su código:** cambiar el vocabulario de **dron → robot de riel** en todo (textos, docs y contrato: tabla `drones`, `dron_id`, fuente `'dron:B1'`).
 
 ## F. Notas de Samuel
-30. **(24 oct) Datos de prueba del dashboard:** `python -m hub.mock` genera `data/mock.db` (corridas `demo`, `temporada-7` y `celular-12`, con `contrato/schema.sql` tal cual) y `python -m hub.mock --vivo --corrida demo` la escribe en vivo. El dashboard cambia de base con `FINCA_DB` (`$env:FINCA_DB = "data\mock.db"`; por defecto `data\finca.db`) y de corrida con `?corrida=` en la URL.
+31. **(24 oct) Datos de prueba del dashboard:** `python -m hub.mock` genera `data/mock.db` (corridas `demo`, `temporada-7` y `celular-12`, con `contrato/schema.sql` tal cual) y `python -m hub.mock --vivo --corrida demo` la escribe en vivo. El dashboard cambia de base con `FINCA_DB` (`$env:FINCA_DB = "data\mock.db"`; por defecto `data\finca.db`) y de corrida con `?corrida=` en la URL.
 
 ## D. Datos biológicos (`Scientificic information.pdf`, Sara B.)
 15. Parámetros del PDF pasados a `config/default.yaml`. Cambios que afectan a Samuel:
