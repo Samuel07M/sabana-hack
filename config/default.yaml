@@ -194,14 +194,21 @@ dashboard:
       plantas: 3
       confianza: 0.88
       seguimientos: [[mejora, 1], [limpia, 0], [limpia, 0]]
-  mapa:                                 # fuente: supuesto · mapa 3D (unidades del SVG)
-    cama_ancho: 26
-    cama_largo: 78
-    sep_camas: 8
-    pasillo: 32
-    altura_max: 48
-    altura_robot: 112
-    vista_inicial: {theta: -28, elev: 50, zoom: 1}
+  mapa:                                 # fuente: supuesto · mapa del bloque (unidades del SVG; geometría en dashboard/componentes/mapa3d/layout.py)
+    cama_alto: 16                       # camas horizontales, apiladas de arriba abajo dentro de la nave
+    mitad_ancho: 88                     # cada mitad de cama (a un lado del pasillo): 5,5:1
+    pasillo_central: 26                 # pasillo vertical por donde corre el riel del robot
+    sep_camas: 5
+    sep_naves: 34
+    margen_placa: 6                     # placa de suelo de la nave alrededor de las camas
+    sep_flecha: 12                      # flecha de ventilación a la derecha de la nave
+    sep_etiqueta: 22                    # etiqueta N1…N6 a la izquierda de la nave
+    altura_max: 26                      # alto de la barra 3D con riesgo o humedad máximos
+    altura_robot: 70
+    escala: 0.8                         # px por unidad con zoom 1 (una cama de ~13 px de alto)
+    alto_max_px: 560                    # alto visible del mapa; el resto de las naves con scroll vertical
+    vista_inicial: {theta: 0, elev: 90, zoom: 1}   # plano: el bloque es alto y angosto
+    vista_3d: {theta: -28, elev: 50}
   ui:                                   # fuente: supuesto
     max_alertas_lista: 120
     horas_grafica: 72

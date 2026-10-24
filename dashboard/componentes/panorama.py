@@ -3,9 +3,10 @@ import streamlit as st
 
 from dashboard.componentes.estado import Ctx, abrir_cama
 from dashboard.componentes.graficas import sparkline
+from dashboard.componentes.mapa3d import layout as LY
 from dashboard.componentes.mapa3d import mapa3d
 from dashboard.componentes.ui import (ABIERTA, C_ROBOT, LABEL, V_ROBOT, chip, clicable, color_riesgo, esc,
-                                      f1, html, ic, ico_box, pct, plural)
+                                      f1, html, ic, ico_box, nulo, pct, plural)
 from hub import db
 from hub import tiempo as T
 from hub import ubicacion as U
@@ -36,6 +37,16 @@ def kpis(ctx: Ctx) -> None:
         f'<div class="l">{l}</div></div><div class="d">{d}</div></div>' for i, c, val, l, d, sp in k) + "</section>")
 
 
+def _marcas_incidencia(ctx: Ctx, b: int) -> list[dict]:
+    """Incidencias abiertas del bloque en la planta de su posición (centro de la cama si no la trae)."""
+    marcas = []
+    for i in db.incidencias(ctx.corrida, bloque=b, grupo="abiertas").itertuples():
+        _, n, c = U.partes(i.cama_id)
+        xy = LY.punto_robot(b, n, c, ctx.cfg) if nulo(i.posicion) else LY.punto_planta(b, n, c, int(i.posicion), ctx.cfg)
+        marcas.append({"cama_id": i.cama_id, "xy": xy})
+    return marcas
+
+
 def _datos_mapa(ctx: Ctx, b: int, riesgo, dia) -> dict:
     """Datos del bloque para el componente mapa3d (riesgo, humedad, tooltip, robot, incidencias y ventilación)."""
     cfg = ctx.cfg
@@ -46,7 +57,8 @@ def _datos_mapa(ctx: Ctx, b: int, riesgo, dia) -> dict:
     camas, tips = [], {}
     for c in db.camas(b).itertuples():
         r, cl, v = rm.get(c.cama_id), clima.get(c.cama_id), vars_.get(c.cama_id)
-        camas.append({"id": c.cama_id, "num": int(c.cama), "n": int(c.nave), "k": U.cama_en_nave(int(c.cama)),
+        camas.append({"id": c.cama_id, "num": int(c.cama), "n": int(c.nave),
+                      "mitades": LY.mitades_cama(b, int(c.nave), int(c.cama), cfg),
                       "prob": None if r is None else float(r.prob_ia_7d), "hr": None if cl is None else float(cl.hr)})
         tips[c.cama_id] = {
             "nombre": U.sin_bloque(c.cama_id),
@@ -61,13 +73,19 @@ def _datos_mapa(ctx: Ctx, b: int, riesgo, dia) -> dict:
     dr = db.robots_actual(ctx.corrida)
     dr = dr[dr["robot_id"] == f"B{b}"]
     hc = cfg["riesgo"]["hora_calculo"]
+    robot = None
+    if not dr.empty:
+        d = dr.iloc[0]
+        _, n, c = U.partes(d["cama_id"])
+        robot = {"robot_id": d["robot_id"], "cama_id": d["cama_id"], "estado": d["estado"], "xy": LY.punto_robot(b, n, c, cfg)}
+    naves = range(1, g["naves_por_bloque"] + 1)
     return {
-        "tema": st.session_state.tema, "bloque": b, "naves": g["naves_por_bloque"], "camas_por_nave": g["camas_por_nave"],
-        "mapa": cfg["dashboard"]["mapa"], "camas": camas, "tips": tips,
-        "incidencias": sorted(set(db.incidencias(ctx.corrida, bloque=b, grupo="abiertas")["cama_id"])),
-        "vent": vent, "sel": st.session_state.cama, "capa": st.session_state.mapa_capa,
-        "robot": None if dr.empty else {"robot_id": dr.iloc[0]["robot_id"], "cama_id": dr.iloc[0]["cama_id"],
-                                       "estado": dr.iloc[0]["estado"]},
+        "tema": st.session_state.tema, "bloque": b, "mapa": cfg["dashboard"]["mapa"], "camas": camas, "tips": tips,
+        "dims": LY.dimensiones(b, cfg), "pasillo": LY.rect_pasillo(b, cfg),
+        "naves": [{"n": n, "placas": LY.placas_nave(b, n, cfg), "flecha": LY.flecha_aire(b, n, cfg),
+                   "etiqueta": LY.punto_etiqueta(b, n, cfg), "vent": vent.get(n)} for n in naves],
+        "incidencias": _marcas_incidencia(ctx, b),
+        "sel": st.session_state.cama, "capa": st.session_state.mapa_capa, "robot": robot,
         "titulo": f"Bloque {b}",
         "sub": "Esperando el primer cálculo de riesgo (06:00)" if dia is None else
                f"{g['naves_por_bloque']} naves · {g['naves_por_bloque'] * g['camas_por_nave']} camas · riesgo calculado el "

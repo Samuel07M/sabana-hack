@@ -32,10 +32,10 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;paddin
 .seg button.on{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18),0 0 0 1px var(--border-2)}
 .tbtn{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--card-2);border:1px solid var(--border);color:var(--muted)}
 .tbtn:hover{color:var(--text);border-color:var(--border-2)}
-.mapa-host{position:relative;overflow:hidden}
-#m3d{display:block;width:100%;height:560px;touch-action:none;cursor:grab;user-select:none}
+.mapa-host{position:relative;overflow:auto;overscroll-behavior:contain;border-radius:12px}
+#m3d{display:block;margin:0 auto;touch-action:pan-y;cursor:grab;user-select:none}
 #m3d.arrastrando{cursor:grabbing}
-.mapa-hint{position:absolute;left:14px;bottom:12px;display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--faint);pointer-events:none}
+.mapa-hint{display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--faint);margin-top:6px}
 .mapa-pie{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-top:8px}
 .ramp{display:flex;flex-direction:column;gap:5px;min-width:220px}
 .ramp .g{height:8px;border-radius:999px}
@@ -47,6 +47,7 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;paddin
 .m-lbl{fill:var(--lbl);font-size:11px;font-weight:650;letter-spacing:.04em}
 .m-lbl.cama{font-size:9px;fill:rgba(255,255,255,.85);font-weight:700;pointer-events:none}
 .m-flujo{fill:none;stroke:var(--flow);stroke-width:1.6;stroke-dasharray:3 7;stroke-linecap:round;opacity:.75;animation:flujo 1.1s linear infinite}
+.m-riel{fill:none;stroke:var(--faint);stroke-width:1.2;stroke-dasharray:1 5;stroke-linecap:round;opacity:.6}
 .m-flujo.off{stroke:var(--faint);opacity:.35;animation:none;stroke-dasharray:2 6}
 @keyframes flujo{to{stroke-dashoffset:-20}}
 .m-cama{cursor:pointer}
@@ -74,13 +75,13 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;paddin
 .kv{display:grid;grid-template-columns:auto auto;gap:4px 16px;margin-top:8px}
 .kv span:nth-child(odd){color:var(--muted)}
 .kv span:nth-child(even){text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
-@media (max-width:900px){#m3d{height:420px}}
 </style>
 </head>
 <body>
 <div id="raiz">
   <div class="hd"><div><h3 id="mapaTitulo"></h3><div class="sub" id="mapaSub"></div></div><div class="spacer"></div><div class="tools" id="mapaTools"></div></div>
   <div class="mapa-host" id="mapaHost"></div>
+  <div class="mapa-hint" id="mapaHint"></div>
   <div class="mapa-pie" id="mapaLeyenda"></div>
 </div>
 <div id="tip"></div>
@@ -120,7 +121,7 @@ function hexRgb(h){h=h.trim().replace('#','');if(h.length===3)h=h.split('').map(
 const V_ROBOT={patrulla:'var(--accent)',prioridad:'var(--adv)',inspeccionando:'var(--insp)',carga:'var(--faint)'};
 
 let D=null;            // datos del bloque que manda Python
-const CLAVE='mapa3d-vista';
+const CLAVE='mapa3d-vista-2';     // v2: camas horizontales con pasillo central (la vista guardada antes ya no sirve)
 
 /* ---------- Mapa 3D (SVG con proyección propia, igual que el prototipo) ---------- */
 const Mapa = {
@@ -130,9 +131,8 @@ const Mapa = {
     try{const s=JSON.parse(sessionStorage.getItem(CLAVE)||'null'); if(s) Object.assign(this,{theta:s.theta,elev:s.elev,zoom:s.zoom,capa:s.capa||'riesgo'});}catch(e){}
   },
   guardar(){ try{sessionStorage.setItem(CLAVE,JSON.stringify({theta:this.theta,elev:this.elev,zoom:this.zoom,capa:this.capa}));}catch(e){} },
-  dims(){const M=D.mapa;return {W:D.camas_por_nave*(M.cama_ancho+M.sep_camas)-M.sep_camas, D:D.naves*(M.cama_largo+M.pasillo)-M.pasillo};},
   mount(host){
-    host.innerHTML=`<svg id="m3d" viewBox="-430 -300 860 600" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa 3D del bloque">
+    host.innerHTML=`<svg id="m3d" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Mapa 3D del bloque">
       <defs><filter id="fSombra" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000" flood-opacity=".22"/></filter>
         <marker id="mkFlujo" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1 9 5 1 9" fill="none" style="stroke:var(--flow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
       <g id="mSuelo"></g><g id="mCamas" filter="url(#fSombra)"></g><g id="mMarcas"></g><g id="mEtiq"></g>
@@ -145,7 +145,7 @@ const Mapa = {
           <circle class="nucleo" r="4.6"/></g>
         <text class="tag" x="16" y="-12"></text>
       </g>
-    </svg><div class="mapa-hint">${ic('move',13)}Arrastra para girar · rueda para acercar · clic en una cama para ver el detalle</div>`;
+    </svg>`;
     const svg=host.querySelector('svg');
     svg.addEventListener('pointerdown',e=>{
       if(e.button!==0) return;
@@ -162,7 +162,8 @@ const Mapa = {
         this.drag=null;};
       window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up);
     });
-    svg.addEventListener('wheel',e=>{e.preventDefault();this.zoom=clamp(this.zoom*(e.deltaY<0?1.08:1/1.08),0.6,2.6);svg.classList.add('sin-anim');this.pedir();this.guardar();clearTimeout(this._wt);this._wt=setTimeout(()=>svg.classList.remove('sin-anim'),120);},{passive:false});
+    svg.addEventListener('wheel',e=>{if(!e.ctrlKey) return;   /* la rueda sola desplaza por las naves; Ctrl + rueda acerca */
+      e.preventDefault();this.zoom=clamp(this.zoom*(e.deltaY<0?1.08:1/1.08),0.6,2.6);svg.classList.add('sin-anim');this.pedir();this.guardar();clearTimeout(this._wt);this._wt=setTimeout(()=>svg.classList.remove('sin-anim'),120);},{passive:false});
     this.montado=true;
   },
   pedir(){ if(this.raf) return; this.raf=requestAnimationFrame(()=>{this.raf=0;this.render();}); },
@@ -182,28 +183,44 @@ const Mapa = {
     const v=clamp((c.hr-60)/40,0,1); return {v,c:rampa(RAMPA_HR,v)};
   },
   render(){
+    /* Las coordenadas vienen calculadas de dashboard/componentes/mapa3d/layout.py: aquí solo se proyectan. */
     const svg=document.getElementById('m3d'); if(!svg||!D) return;
-    const M=D.mapa, {W,D:DD}=this.dims(), th=this.theta*Math.PI/180, el=this.elev*Math.PI/180, s=this.zoom*0.9;
+    const M=D.mapa, [W,DD]=D.dims, th=this.theta*Math.PI/180, el=this.elev*Math.PI/180, s=this.zoom*M.escala;
     const sn=Math.sin(th), cs=Math.cos(th), sE=Math.sin(el), cE=Math.cos(el);
     const P=(x,y,z)=>{const cx=x-W/2,cy=y-DD/2,xr=cx*cs-cy*sn,yr=cx*sn+cy*cs;return [xr*s,(yr*sE-z*cE)*s,yr];};
     const pts=a=>a.map(p=>{const q=P(p[0],p[1],p[2]);return q[0].toFixed(1)+','+q[1].toFixed(1);}).join(' ');
-    const b=D.bloque, incPorCama=new Set(D.incidencias);
+    const caja=([x,y,w,h],z=0)=>[[x,y,z],[x+w,y,z],[x+w,y+h,z],[x,y+h,z]];
+    const linea=(a,z,cls,extra='')=>{const p=P(a[0][0],a[0][1],z),q=P(a[1][0],a[1][1],z);
+      return `<line class="${cls}" x1="${p[0].toFixed(1)}" y1="${p[1].toFixed(1)}" x2="${q[0].toFixed(1)}" y2="${q[1].toFixed(1)}" ${extra}/>`;};
+    const b=D.bloque;
     const sindato=hexRgb(getComputedStyle(document.documentElement).getPropertyValue('--sindato')||'#3E4866');
-    const CW=M.cama_ancho, CD=M.cama_largo, paso=CW+M.sep_camas, pasoN=CD+M.pasillo, lados=this.elev<88.5;
+    const lados=this.elev<88.5;
 
-    let suelo=`<polygon class="m-base" points="${pts([[-52,-34,0],[W+30,-34,0],[W+30,DD+30,0],[-52,DD+30,0]])}"/>`, etiq='';
-    for(let n=1;n<=D.naves;n++){
-      const y0=(n-1)*pasoN, v=D.vent[n], off=v==='apagada';
-      suelo+=`<polygon class="m-nave ${off?'off':''}" points="${pts([[-8,y0-8,0],[W+8,y0-8,0],[W+8,y0+CD+8,0],[-8,y0+CD+8,0]])}"/>`;
-      if(v){const yv=y0+CD+18, a=P(6,yv,0), z=P(W-6,yv,0);
-        suelo+=`<line class="m-flujo ${off?'off':''}" x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${z[0].toFixed(1)}" y2="${z[1].toFixed(1)}" ${off?'':'marker-end="url(#mkFlujo)"'}/>`;}
-      const L=P(-30,y0+CD/2,0); etiq+=`<text class="m-lbl" x="${L[0].toFixed(1)}" y="${(L[1]+4).toFixed(1)}" text-anchor="middle">N${n}</text>`;
+    // tamaño del SVG: el suelo del bloque proyectado (con el alto del robot); lo que no cabe se ve con scroll
+    const mg=M.margen_placa, x0=-mg-M.sep_etiqueta-18, x1=W+mg+M.sep_flecha+14, y0=-mg-12, y1=DD+mg+12;
+    const piso=[[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+    const bb=[...piso.map(([x,y])=>P(x,y,0)),...piso.map(([x,y])=>P(x,y,M.altura_robot+24))];
+    const PADV=14, vx=Math.min(...bb.map(q=>q[0]))-PADV, vy=Math.min(...bb.map(q=>q[1]))-PADV;
+    const vw=Math.max(...bb.map(q=>q[0]))-vx+PADV, vh=Math.max(...bb.map(q=>q[1]))-vy+PADV;
+    svg.setAttribute('viewBox',`${vx.toFixed(1)} ${vy.toFixed(1)} ${vw.toFixed(1)} ${vh.toFixed(1)}`);
+    svg.style.width=vw.toFixed(0)+'px'; svg.style.height=vh.toFixed(0)+'px';
+
+    let suelo=`<polygon class="m-base" points="${pts(piso.map(([x,y])=>[x,y,0]))}"/>`, etiq='';
+    for(const nv of D.naves){
+      const off=nv.vent==='apagada';
+      for(const r of nv.placas) suelo+=`<polygon class="m-nave ${off?'off':''}" points="${pts(caja(r))}"/>`;
+      if(nv.vent) suelo+=linea(nv.flecha,0,`m-flujo ${off?'off':''}`,off?'':'marker-end="url(#mkFlujo)"');
+      const L=P(nv.etiqueta[0],nv.etiqueta[1],0);
+      etiq+=`<text class="m-lbl" x="${L[0].toFixed(1)}" y="${(L[1]+4).toFixed(1)}" text-anchor="middle">N${nv.n}</text>`;
     }
+    const [px,py,pw,ph]=D.pasillo;
+    suelo+=linea([[px+pw/2,py],[px+pw/2,py+ph]],0,'m-riel');
+
     const cajas=[];
     for(const cm of D.camas){
-      const x0=(cm.k-1)*paso, y0=(cm.n-1)*pasoN;
       const val=this.valor(cm), hgt=val?4+val.v*M.altura_max:2, col=val?val.c:sindato;
-      cajas.push({id:cm.id,num:cm.num,x0,y0,x1:x0+CW,y1:y0+CD,h:hgt,col,d:P(x0+CW/2,y0+CD/2,0)[2]});
+      const [,my,,mh]=cm.mitades[0];
+      cajas.push({id:cm.id,num:cm.num,mitades:cm.mitades,h:hgt,col,d:P(px+pw/2,my+mh/2,0)[2]});
     }
     cajas.sort((a,c)=>a.d-c.d);
     let g='', marcas='';
@@ -211,34 +228,42 @@ const Mapa = {
     const alturaDe=new Map();
     for(const c of cajas){
       alturaDe.set(c.id,c);
+      const mitades=c.mitades.map(([x,y,w,h])=>({x0:x,y0:y,x1:x+w,y1:y+h,d:P(x+w/2,y+h/2,0)[2]})).sort((a,e)=>a.d-e.d);
       let f='';
-      if(lados) for(const [nx,ny,k] of caras){
-        const nyr=nx*sn+ny*cs; if(nyr<=0.02) continue;
-        let q;
-        if(k==='f') q=[[c.x0,c.y1,0],[c.x1,c.y1,0],[c.x1,c.y1,c.h],[c.x0,c.y1,c.h]];
-        else if(k==='b') q=[[c.x1,c.y0,0],[c.x0,c.y0,0],[c.x0,c.y0,c.h],[c.x1,c.y0,c.h]];
-        else if(k==='r') q=[[c.x1,c.y1,0],[c.x1,c.y0,0],[c.x1,c.y0,c.h],[c.x1,c.y1,c.h]];
-        else q=[[c.x0,c.y0,0],[c.x0,c.y1,0],[c.x0,c.y1,c.h],[c.x0,c.y0,c.h]];
-        f+=`<polygon points="${pts(q)}" fill="${rgb(c.col,0.5+0.22*nyr+(ny!==0?0.04:0))}"/>`;
+      for(const m of mitades){
+        if(lados) for(const [nx,ny,k] of caras){
+          const nyr=nx*sn+ny*cs; if(nyr<=0.02) continue;
+          let q;
+          if(k==='f') q=[[m.x0,m.y1,0],[m.x1,m.y1,0],[m.x1,m.y1,c.h],[m.x0,m.y1,c.h]];
+          else if(k==='b') q=[[m.x1,m.y0,0],[m.x0,m.y0,0],[m.x0,m.y0,c.h],[m.x1,m.y0,c.h]];
+          else if(k==='r') q=[[m.x1,m.y1,0],[m.x1,m.y0,0],[m.x1,m.y0,c.h],[m.x1,m.y1,c.h]];
+          else q=[[m.x0,m.y0,0],[m.x0,m.y1,0],[m.x0,m.y1,c.h],[m.x0,m.y0,c.h]];
+          f+=`<polygon points="${pts(q)}" fill="${rgb(c.col,0.5+0.22*nyr+(ny!==0?0.04:0))}"/>`;
+        }
+        const yc=(m.y0+m.y1)/2;
+        f+=`<polygon class="m-top" points="${pts([[m.x0,m.y0,c.h],[m.x1,m.y0,c.h],[m.x1,m.y1,c.h],[m.x0,m.y1,c.h]])}" fill="${rgb(c.col)}"/>`;
+        f+=linea([[m.x0+5,yc],[m.x1-5,yc]],c.h,'m-planta');
       }
-      const xc=(c.x0+c.x1)/2, a=P(xc,c.y0+6,c.h), z=P(xc,c.y1-6,c.h);
-      f+=`<polygon class="m-top" points="${pts([[c.x0,c.y0,c.h],[c.x1,c.y0,c.h],[c.x1,c.y1,c.h],[c.x0,c.y1,c.h]])}" fill="${rgb(c.col)}"/>`;
-      f+=`<line class="m-planta" x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${z[0].toFixed(1)}" y2="${z[1].toFixed(1)}"/>`;
-      if(this.zoom>=1.45){const t=P(xc,(c.y0+c.y1)/2,c.h);f+=`<text class="m-lbl cama" x="${t[0].toFixed(1)}" y="${(t[1]+3).toFixed(1)}" text-anchor="middle">${c.num}</text>`;}
+      if(this.zoom>=1.45){const [x,y,w,h]=c.mitades[0],t=P(x+w/2,y+h/2,c.h);
+        f+=`<text class="m-lbl cama" x="${t[0].toFixed(1)}" y="${(t[1]+3).toFixed(1)}" text-anchor="middle">${c.num}</text>`;}
       g+=`<g class="m-cama ${D.sel===c.id?'sel':''}" data-cama="${c.id}">${f}</g>`;
-      if(incPorCama.has(c.id)){const t=P(xc,(c.y0+c.y1)/2,c.h);marcas+=`<g class="m-inc" transform="translate(${t[0].toFixed(1)} ${(t[1]-2).toFixed(1)})"><circle class="r" r="6"/><circle class="c" r="5"/></g>`;}
+    }
+    for(const inc of D.incidencias){
+      const c=alturaDe.get(inc.cama_id); if(!c) continue;
+      const t=P(inc.xy[0],inc.xy[1],c.h);
+      marcas+=`<g class="m-inc" transform="translate(${t[0].toFixed(1)} ${t[1].toFixed(1)})"><circle class="r" r="5"/><circle class="c" r="4"/></g>`;
     }
     document.getElementById('mSuelo').innerHTML=suelo;
     document.getElementById('mCamas').innerHTML=g;
     document.getElementById('mMarcas').innerHTML=marcas;
     document.getElementById('mEtiq').innerHTML=etiq;
-    // robot de riel
+    // robot de riel: sobre el pasillo, a la altura de la cama donde está
     const dg=document.getElementById('mRobot'), dr=D.robot, c=dr&&alturaDe.get(dr.cama_id);
     if(!c){dg.style.display='none';return;}
     dg.style.display='';
     if(this.bloquePrevio!==b){svg.classList.add('sin-anim');requestAnimationFrame(()=>requestAnimationFrame(()=>{if(!this.drag)svg.classList.remove('sin-anim');}));this.bloquePrevio=b;}
-    const zD=dr.estado==='inspeccionando'?c.h+14:c.h+M.altura_robot;
-    const p=P((c.x0+c.x1)/2,(c.y0+c.y1)/2,zD), L=Math.max(0,(zD-c.h)*cE*s);
+    const zD=dr.estado==='inspeccionando'?c.h+10:c.h+M.altura_robot;
+    const p=P(dr.xy[0],dr.xy[1],zD), L=Math.max(0,(zD-c.h)*cE*s);
     dg.style.setProperty('--dc',V_ROBOT[dr.estado]);
     dg.style.transform=`translate(${p[0].toFixed(1)}px,${p[1].toFixed(1)}px)`;
     dg.querySelector('.m-cable').style.transform=`scaleY(${L.toFixed(1)})`;
@@ -269,7 +294,9 @@ function pintar(){
   document.documentElement.dataset.theme=D.tema==='light'?'light':'dark';
   document.getElementById('mapaTitulo').textContent=D.titulo;
   document.getElementById('mapaSub').textContent=D.sub;
-  if(!Mapa.montado){ Mapa.cargar(D.mapa.vista_inicial); Mapa.mount(document.getElementById('mapaHost')); herramientas(); }
+  if(!Mapa.montado){ Mapa.cargar(D.mapa.vista_inicial); Mapa.mount(document.getElementById('mapaHost')); herramientas();
+    document.getElementById('mapaHint').innerHTML=`${ic('move',13)}Rueda para ver todas las naves · Ctrl + rueda para acercar · arrastra para girar · clic en una cama para ver el detalle`; }
+  document.getElementById('mapaHost').style.maxHeight=D.mapa.alto_max_px+'px';
   if(D.capa && Mapa.capa!==D.capa){ Mapa.capa=D.capa; herramientas(); }   /* capa pedida por el tour guiado */
   Mapa.render();
   ajustarAlto();
@@ -281,7 +308,7 @@ function ajustarAlto(){ const h=Math.ceil(document.getElementById('raiz').getBou
 /* ---------- interacción ---------- */
 const ACCIONES={
   capa:d=>{Mapa.capa=d.v;Mapa.guardar();herramientas();Mapa.render();},
-  vista:d=>{const v=D.mapa.vista_inicial; if(d.v==='plano')Mapa.animarA(0,90,Mapa.zoom); else Mapa.animarA(v.theta,v.elev,Mapa.zoom);},
+  vista:d=>{const v=D.mapa.vista_3d; if(d.v==='plano')Mapa.animarA(0,90,Mapa.zoom); else Mapa.animarA(v.theta,v.elev,Mapa.zoom);},
   zoom:d=>{Mapa.animarA(Mapa.theta,Mapa.elev,clamp(Mapa.zoom*(+d.v>0?1.25:0.8),0.6,2.6));},
   resetVista:()=>{const v=D.mapa.vista_inicial;Mapa.animarA(v.theta,v.elev,v.zoom);},
 };
