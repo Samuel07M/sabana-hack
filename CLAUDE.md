@@ -43,7 +43,7 @@ Toda ubicación se expresa como **Bloque · Nave · Cama**, igual que en la finc
 
 **Regla:** no edites carpetas del otro sin avisar. Si necesitas algo del otro lado, propón el cambio en `contrato/` o deja una nota en `NOTAS.md`.
 
-Plan de Santiago: `planSantiago.md`. Plan de Samuel: `planSamuel.md`.
+Plan de Santiago: `planSantiago.md`. Plan de Samuel: `planSamuel.md`. Guía de implementación detallada (lado de Santiago): `MASTER_CODING_GUIDE.md`.
 
 ## Contrato de datos (`contrato/schema.sql`)
 
@@ -133,7 +133,7 @@ CREATE TABLE cola_sync (            -- nivel 2: datos esperando llegar al modelo
 
 ## Convenciones
 
-- Python 3.12, entorno virtual `.venv`. Dependencias en `requirements.txt` con versiones fijadas.
+- Python 3.13, entorno virtual `.venv`. Dependencias en `requirements.txt` con versiones fijadas.
 - Windows: abre siempre los archivos de texto con `encoding="utf-8"` (por defecto Windows usa cp1252 y rompe las tildes y la ñ).
 - Toda corrida recibe una `semilla`. Una sola fuente de aleatoriedad por corrida: `numpy.random.default_rng(semilla)`. Nunca `random` global.
 - Todo parámetro va en `config/default.yaml` con comentario de origen: `# fuente: biología (Sara B.)`, `# fuente: supuesto`, `# fuente: ficha técnica`. Nada de números mágicos en el código.
