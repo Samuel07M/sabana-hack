@@ -13,9 +13,9 @@ const Streamlit = {
 };
 
 const P = window.parent, PD = P.document;
-const G = P.__bgiTour || (P.__bgiTour = {n:0, auto:false, teclado:false, intervalo:0, clave:null, desde:0, scroll:null});
+const G = P.__bgiTour || (P.__bgiTour = {n:0, auto:false, teclado:false, intervalo:0, clave:null, desde:0, scrollHasta:0});
 const VISTO = 'bgi_tour_visto';
-const PAD = 8, MARGEN = 16, SEP = 14;
+const PAD = 8, MARGEN = 16, SEP = 14, MS_SCROLL = 1500;
 let A = {activo:false};
 let reloj = 0;
 
@@ -73,11 +73,21 @@ function asegurarCss(){
   PD.head.appendChild(l);
 }
 
+/* Los diálogos de Streamlit (react-aria) vuelven `inert` todo lo que está fuera de ellos: el recuadro se vería pero
+   no recibiría clics. Con data-react-aria-top-layer react-aria lo deja vivo; si aun así lo marca, se le quita. */
+function vivo(r){
+  r.setAttribute('data-react-aria-top-layer', 'true');
+  if(r.inert || r.hasAttribute('inert')){ r.inert = false; r.removeAttribute('inert'); }
+  r.removeAttribute('aria-hidden');
+}
+
 function raiz(){
   let r = PD.getElementById('bgi-tour');
-  if(r) return r;
+  if(r){ vivo(r); return r; }
   r = PD.createElement('div');
   r.id = 'bgi-tour';
+  vivo(r);
+  new P.MutationObserver(() => vivo(r)).observe(r, {attributes:true, attributeFilter:['inert', 'aria-hidden']});
   r.innerHTML = '<div class="bgi-bloqueo"></div><div class="bgi-spot"></div>'
               + '<div class="bgi-box" role="dialog" aria-modal="true" aria-live="polite" tabindex="-1"></div>';
   r.querySelector('.bgi-box').addEventListener('click', e => {
@@ -138,19 +148,25 @@ function colocarBox(box, x, y, w, h, vw, vh){
   box.style.top = limitar(l.top, MARGEN, vh - bh - MARGEN) + 'px';
 }
 
+function cabe(r, vh){ return r.height + 2 * PAD <= vh - 2 * MARGEN; }
+
+function enVista(r, vh){
+  return cabe(r, vh) ? (r.top - PAD >= 0 && r.bottom + PAD <= vh) : (r.top >= -1 && r.top <= PAD + 1);
+}
+
 function reubicar(){
   const r = PD.getElementById('bgi-tour');
   if(!r || !A.activo) return;
   const spot = r.querySelector('.bgi-spot'), box = r.querySelector('.bgi-box'), bloqueo = r.querySelector('.bgi-bloqueo');
   const vw = P.innerWidth, vh = P.innerHeight;
   let o = objetivo();
-  if(o && G.scroll !== G.clave && (o.r.top < 0 || o.r.bottom > vh)){
-    G.scroll = G.clave;
-    const lento = !P.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    o.el.scrollIntoView({block: o.r.height < vh - 2 * MARGEN ? 'center' : 'start', behavior: lento ? 'smooth' : 'auto'});
+  if(o && Date.now() < G.scrollHasta && !enVista(o.r, vh)){
+    /* Instantáneo y repetido durante MS_SCROLL: Streamlit redibuja y cancela un scroll suave.
+       Si el destacado es más alto que la pantalla se alinea arriba (se ve el título, se corta el pie). */
+    o.el.scrollIntoView({block: cabe(o.r, vh) ? 'center' : 'start', behavior: 'auto'});
     o = objetivo();
   }
-  const esperando = !o && A.target && !A.error && Date.now() - G.desde < (A.espera_ms || 2000);
+  const esperando = !o && A.target && !A.error && !A.buscando && Date.now() - G.desde < (A.espera_ms || 2000);
   r.classList.toggle('sin-target', !o);
   box.style.visibility = esperando ? 'hidden' : 'visible';
   if(!o){
@@ -184,6 +200,7 @@ function render(args){
     const clave = A.error ? 'error' : `${A.paso}`;
     const nuevo = clave !== G.clave;
     if(nuevo){ G.clave = clave; G.desde = Date.now(); }
+    if(nuevo || A.buscando) G.scrollHasta = Date.now() + MS_SCROLL;   // tras cada redibujo del paso, se vuelve a encuadrar
     const html = contenido();
     if(box.innerHTML !== html) box.innerHTML = html;
     if(nuevo) box.focus({preventScroll:true});
