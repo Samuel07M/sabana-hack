@@ -1,5 +1,6 @@
 """Botrytis por planta: infección (Nair y Allen + núcleo espacial + aire), latencia, pérdida y tratamiento."""
 import numpy as np
+from scipy import sparse
 
 SANA, LATENTE, SINTOMAS, TRATADA, PERDIDA = 0, 1, 2, 3, 4
 
@@ -24,12 +25,21 @@ class Enfermedad:
         self.U = rng.random((n_horas, n), dtype=np.float32)       # sorteos comunes entre escenarios
         self.dur_latencia = rng.uniform(*e["latencia_dias"], n) * 24
         self.dur_perdida = rng.uniform(*e["sintomas_a_perdida_dias"], n) * 24
-        self.pv = np.zeros(n)                                      # presión de vecinos (incremental)
+        self.Vb = self._vecindad_con_beta(e, geo)                  # β_cama·K en la misma cama, β_vec·K entre camas
+        self.pv = np.zeros(n)                                      # tasa por vecinos ya multiplicada por β (incremental)
         self.peso = np.zeros(n)                                    # peso infeccioso actual por planta
         self.peso_cama = np.zeros(geo.n_camas)                     # suma del peso por cama (para el aire)
         self.focos = self._focos(cfg, rng)
         self.cambios: list[tuple] = []                             # (hora, planta, estado_nuevo)
         self.afectadas = np.zeros(n_horas, dtype=np.int32)         # latentes + síntomas + perdidas por hora
+
+    @staticmethod
+    def _vecindad_con_beta(e: dict, geo) -> sparse.csc_matrix:
+        """Núcleo K con β_cama dentro de la cama (meta logística del PDF) y β_vec entre camas (meta 5,5 % del PDF)."""
+        V = geo.V.tocoo()
+        misma = geo.cama_de_planta[V.row] == geo.cama_de_planta[V.col]
+        datos = V.data * np.where(misma, e["beta_cama"], e["beta_vec"])
+        return sparse.csc_matrix((datos, (V.row, V.col)), shape=V.shape)
 
     def _focos(self, cfg: dict, rng: np.random.Generator) -> list[tuple[int, int]]:
         """Lista ordenada de (hora, planta) con los focos iniciales."""
@@ -52,8 +62,8 @@ class Enfermedad:
         for i in plantas:
             delta = w - self.peso[i]
             if delta:
-                rows = self.geo.V.indices[self.geo.V.indptr[i]:self.geo.V.indptr[i + 1]]
-                self.pv[rows] += delta * self.geo.V.data[self.geo.V.indptr[i]:self.geo.V.indptr[i + 1]]
+                ini, fin = self.Vb.indptr[i], self.Vb.indptr[i + 1]
+                self.pv[self.Vb.indices[ini:fin]] += delta * self.Vb.data[ini:fin]
                 self.peso_cama[self.geo.cama_de_planta[i]] += delta
                 self.peso[i] = w
         self.estado[plantas] = nuevo
@@ -69,7 +79,7 @@ class Enfermedad:
                 self._fijar(np.array([planta]), LATENTE, hora)
         if f_cama.any():
             pa = geo.A_aire @ (self.peso_cama * vent_encendida_cama)
-            lam = (e["beta_vec"] * self.pv + e["beta_aire"] * pa[geo.cama_de_planta] + e["beta_0"]) \
+            lam = (self.pv + e["beta_aire"] * pa[geo.cama_de_planta] + e["beta_0"]) \
                 * f_cama[geo.cama_de_planta]
             nuevas = np.nonzero((self.estado == SANA) & (self.U[hora] < 1.0 - np.exp(-lam)))[0]
             self.t_cambio[nuevas] = hora + self.dur_latencia[nuevas]

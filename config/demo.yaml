@@ -2,7 +2,7 @@
 # Secuencia (≈3 min a 1 h simulada por segundo): noche húmeda del día 2 con un foco latente en B1 · Nave 2 · Cama 14
 # → alerta riesgo_7d (06:00) → el dron pasa de patrulla a prioridad → inspecciona → confirmada → ventilación apagada (auto)
 # → seguimiento a los 3 días (mejora) → paso "Sin red" (run_vivo escribe cola_sync; el hub muestra "Pasa el celular").
-semilla: 35                             # fuente: supuesto · elegida para que la secuencia ocurra completa, con IA o solo con reglas (ver tests/test_demo.py)
+semilla: 219                            # fuente: supuesto · elegida para que la secuencia ocurra completa, con IA o solo con reglas (ver tests/test_demo.py)
 sim: {dias: 8, inicio: "2026-11-01T00:00:00"}   # fuente: supuesto · 192 h ≈ 3 min a 1 h/s
 geometria:
   bloques: 1                            # fuente: supuesto · solo el Bloque 1

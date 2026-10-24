@@ -58,21 +58,24 @@ Es el modelo espacial estocástico del PDF (`p = 1 − exp(−λ·Δt)`, `λ = �
 Q            = exp(-((T - T_opt) / K_temp)^2)                 # T_opt 20,8 °C, K_temp 8,9
 f_ambiental  = 1 - exp(-(Q · W / K_time)^2)                   # W = horas del periodo mojado actual, K_time 13,9 h
                (= 0 si la hora no está mojada o T > 40 °C)
-p            = 1 - exp(-(β_vec·presion_vecinos + β_aire·presion_aire + β_0) · f_ambiental)
+p            = 1 - exp(-(presion_vecinos + β_aire·presion_aire + β_0) · f_ambiental)
+presion_vecinos = Σ_j β_ij·K(d_ij)·peso_j     # β_ij = β_cama en la misma cama, β_vec entre camas
 ```
 
 Chequeos del PDF que deben salir así (prueba en `tests/`): 24 h a 21 °C → 0,949; 24 h a 8 °C → 0,047. Y reproduce la tabla de arándano de UMaine: 24 h a 12 °C, 13 h a 16 °C y 10 h a 20 °C dan todos ≈ 0,34–0,40 (el umbral de riesgo alto).
 
-- `presion_vecinos = V @ (0.5·[latente] + 1.0·[síntomas])`
+- `presion_vecinos (código) = Vb @ (0.5·[latente] + 1.0·[síntomas])`
 - `presion_aire` solo si la ventilación de la nave está encendida.
 - Latente → síntomas tras `U(latencia_min, latencia_max)` días. Síntomas → perdida si no se trata.
 - `tratar(plantas)`: éxito con probabilidad `eficacia`, pasa a tratada (deja de contagiar), vuelve a sana tras `dias_proteccion`.
 - Semillas de infección: 1–3 focos por temporada en plantas aleatorias (preferir `es_borde_planta`).
 
 **Calibrar `β`** (en este orden):
-1. `β_vec` con la meta del PDF: un foco, `f_ambiental = 1`, la cama contigua se infecta con ≈ **5,5 % en una semana** (`meta_cama_adyacente_7d`).
+1. Con las metas del PDF (`python -m sim.calibracion`, `f_ambiental = 1`):
+   - `β_vec` (entre camas): un foco hace que la cama contigua **se infecte** (≥ 1 planta) con ≈ **5,5 % en una semana** (`meta_cama_adyacente_7d`).
+   - `β_cama` (dentro de la cama): un foco crece en su cama con **r ≈ 0,2/día** (logística, aproximación de campo medio).
 2. `β_aire` y `β_0` para que en `sensor_central` la temporada termine con **5–15 %** de plantas afectadas (supuesto).
-3. Chequeo de cordura: un foco sin tratar crece aprox. como una logística con `r ≈ 0,2/día` (PDF, ejemplo [S]).
+3. Hallazgo: con el clima simulado, las tasas del PDF solas propagan muy poco (0,02 %); el aire (supuesto) hace la mayor parte. Declararlo.
 
 ### 2.4 Sensores fijos · `sim/sensores.py`
 - Escenario `sensor_central`: un sensor por bloque en la cama central. Mide `T` y `HR` de esa cama con ruido cada hora. Para las demás camas, el sistema solo “sabe” ese valor.

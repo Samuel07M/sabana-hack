@@ -51,9 +51,10 @@ enfermedad:                             # Botrytis cinerea (moho gris)
   b_dispersion_por_m: 0.5               # fuente: biología (Sara B.) [S] · semidistancia 1,4 m
   corte_nucleo: 0.05                    # fuente: supuesto · pesos menores se descartan (matriz dispersa)
   L_aire_camas: 3.0                     # fuente: supuesto · esporas viajan por aire (PDF: gran potencial de salto)
-  beta_vec: 0.00294                     # fuente: calibrado (python -m sim.calibracion) · cama contigua 5,5 % en 7 días con f_ambiental = 1
-  beta_aire: 0.1                        # fuente: calibrado · barrido sobre sensor_central (semillas 0-29): media ≈ 9 % afectadas; con 0,3 el aire saturaba una nave en horas
-  beta_0: 1.0e-4                        # fuente: calibrado · conidios casi uniformes en el aire del invernadero (PDF)
+  beta_cama: 0.002529                   # fuente: calibrado (python -m sim.calibracion) · dentro de la cama: logística r = 0,2/día (PDF [S]) en campo medio, f_ambiental = 1
+  beta_vec: 7.08e-5                     # fuente: calibrado (python -m sim.calibracion) · entre camas: la cama contigua se infecta con 5,5 % en 7 días (PDF [S], 1 foco, f_ambiental = 1)
+  beta_aire: 0.1                        # fuente: supuesto calibrado · el PDF no cuantifica el transporte por aire; con beta_0 da ≈ 9,7 % afectadas en sensor_central (meta 5-15 %). Es el que más propaga: sin él, 0,09 %
+  beta_0: 1.0e-4                        # fuente: supuesto calibrado · conidios casi uniformes en el aire del invernadero (PDF, cualitativo); siembra focos nuevos
   peso_latente: 0.5                     # fuente: supuesto
   peso_sintomas: 1.0                    # fuente: supuesto
   latencia_dias: [7, 14]                # fuente: supuesto · PDF: no verificado en arándano; su ejemplo usa 14
@@ -65,9 +66,9 @@ enfermedad:                             # Botrytis cinerea (moho gris)
   foco_preferencia_borde: 3.0           # fuente: supuesto · peso extra de las plantas de borde para sembrar focos
   focos_forzados: []                    # fuente: supuesto · demo: [{cama_id, posicion, hora}] (si hay, reemplazan a los aleatorios)
   # Metas de calibración
-  meta_cama_adyacente_7d: 0.055         # fuente: biología (Sara B.) [S] · 1 foco, f_ambiental = 1 → 5,5 % en 1 semana
+  meta_cama_adyacente_7d: 0.055         # fuente: biología (Sara B.) [S] · P(la cama contigua se infecta) con 1 foco y f_ambiental = 1 en 1 semana
   meta_afectadas_sensor_central: [0.05, 0.15]   # fuente: supuesto · % de plantas al final de la temporada
-  tasa_logistica_r_dia: 0.2             # fuente: biología (Sara B.) [S] · solo para chequear el crecimiento de un foco sin tratar
+  tasa_logistica_r_dia: 0.2             # fuente: biología (Sara B.) [S] · meta de beta_cama: crecimiento de un foco dentro de su cama
 sensores:
   ruido_T_sd: 0.2                       # fuente: supuesto
   ruido_HR_sd: 1.0                      # fuente: supuesto

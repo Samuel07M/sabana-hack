@@ -49,10 +49,20 @@ def test_es_borde_planta_incluye_esquinas():
     assert geo.es_borde_planta[0] and geo.es_borde_planta[39] and not geo.es_borde_planta[20 + 40]
 
 
-def test_calibracion_beta_vec():
+def test_calibracion_con_las_metas_del_pdf():
     cfg = cargar_config()
-    assert calibracion.fraccion_cama_contigua(cfg, cfg["enfermedad"]["beta_vec"]) == pytest.approx(
-        cfg["enfermedad"]["meta_cama_adyacente_7d"], abs=0.002)
+    e = cfg["enfermedad"]
+    assert calibracion.prob_cama_contigua(cfg, e["beta_vec"]) == pytest.approx(e["meta_cama_adyacente_7d"], abs=0.002)
+    assert calibracion.tasa_logistica_cama(cfg, e["beta_cama"]) == pytest.approx(e["tasa_logistica_r_dia"], abs=0.005)
+
+
+def test_beta_cama_dentro_y_beta_vec_entre_camas():
+    cfg = cargar_config()
+    geo = geometria.construir(cfg)
+    enf = Enfermedad(cfg, geo, np.random.default_rng(0), 2)
+    e, i = cfg["enfermedad"], 20
+    assert enf.Vb[i, i + 1] == pytest.approx(e["beta_cama"] * geo.V[i, i + 1])
+    assert enf.Vb[i, i + 40] == pytest.approx(e["beta_vec"] * geo.V[i, i + 40])
 
 
 # ── clima ───────────────────────────────────────────────────────────────────
@@ -117,7 +127,7 @@ def test_sin_focos_ni_beta0_nadie_se_infecta():
 
 def test_reproducible_y_transiciones_validas():
     cfg = cfg_chica()
-    cfg["enfermedad"].update(beta_vec=0.05, beta_0=1e-3, latencia_dias=[1, 1], sintomas_a_perdida_dias=[1, 1])
+    cfg["enfermedad"].update(beta_cama=0.05, beta_vec=0.05, beta_0=1e-3, latencia_dias=[1, 1], sintomas_a_perdida_dias=[1, 1])
     resultados = []
     for _ in range(2):
         geo, enf = _enf(cfg)

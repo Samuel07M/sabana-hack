@@ -347,16 +347,17 @@ Modelo espacial estocástico del PDF (`p = 1 − exp(−λΔt)`, `λ = β · f_a
 Q            = exp(-((T - T_opt) / K_temp)^2)                 # baya: T_opt 20,8 °C, K_temp 8,9
 f_ambiental  = 1 - exp(-(Q · W / K_time)^2)                   # baya: K_time 13,9 h
                = 0 si la hora no está mojada o T > T_sin_infeccion (40 °C)
-p            = 1 - exp(-(β_vec·presion_vecinos + β_aire·presion_aire + β_0) · f_ambiental)
+p            = 1 - exp(-(presion_vecinos + β_aire·presion_aire + β_0) · f_ambiental)
+presion_vecinos = Σ_j β_ij·K(d_ij)·peso_j     # β_ij = β_cama en la misma cama, β_vec entre camas
 
-presion_vecinos = V @ (peso_latente·[latente] + peso_sintomas·[síntomas])
+presion_vecinos (código) = Vb @ (peso_latente·[latente] + peso_sintomas·[síntomas])
 presion_aire    = solo si la ventilación de la nave está encendida
 ```
 - Pruebas obligatorias con los números del PDF: `f_ambiental(W=24, T=21) ≈ 0,949`; `f_ambiental(W=24, T=8) ≈ 0,047`; y los tres puntos "alto" de la tabla de arándano de UMaine (24 h a 12 °C, 13 h a 16 °C, 10 h a 20 °C) dan ≈ 0,34–0,40.
 - Latente → síntomas tras `U(latencia_dias)` días (**supuesto**: no verificado en arándano). Síntomas → perdida tras `sintomas_a_perdida_dias` si no se trata.
 - `tratar(plantas)`: éxito con probabilidad `eficacia_tratamiento` → tratada (deja de contagiar) → vuelve a sana tras `dias_proteccion`.
 - Focos iniciales: `focos_por_temporada` (1–3) en plantas aleatorias, preferir `es_borde_planta`.
-- **Calibración de β, en orden:** (1) `β_vec` hasta que, con un foco y `f_ambiental = 1`, la cama contigua se infecte ≈ 5,5 % en 7 días (`meta_cama_adyacente_7d`, PDF); (2) `β_aire` y `β_0` hasta 5–15 % de afectadas al final en `sensor_central`; (3) chequeo: un foco sin tratar crece aprox. como logística con `r ≈ 0,2/día`.
+- **Calibración de β, en orden:** (1) `sim/calibracion.py` con las metas del PDF y `f_ambiental = 1`: `β_vec` (entre camas) hasta que la cama contigua **se infecte** (≥ 1 planta) con ≈ 5,5 % en 7 días; `β_cama` (dentro de la cama) hasta r ≈ 0,2/día; (2) `β_aire` y `β_0` hasta 5–15 % de afectadas al final en `sensor_central`. La presión de vecinos usa `Vb` = `β_cama`·K en la misma cama y `β_vec`·K entre camas.
 - **Verdad a disco [recomendación]:** guardar **eventos de cambio de estado** (`planta`, `cama_id`, `hora`, `estado_nuevo`), no una foto por hora.
 
 ### 6.4 Sensores fijos (`sim/sensores.py`)
