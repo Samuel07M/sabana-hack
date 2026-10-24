@@ -48,7 +48,7 @@ def _marcas_incidencia(ctx: Ctx, b: int) -> list[dict]:
 
 
 def _datos_mapa(ctx: Ctx, b: int, riesgo, dia) -> dict:
-    """Datos del bloque para el componente mapa3d (riesgo, humedad, tooltip, robot, incidencias y ventilación)."""
+    """Datos del bloque para el componente mapa3d (riesgo, humedad, temperatura, tooltip, robot, incidencias y ventilación)."""
     cfg = ctx.cfg
     g = cfg["geometria"]
     clima = {r.cama_id: r for r in db.clima_bloque(ctx.corrida, b).itertuples()}
@@ -59,7 +59,8 @@ def _datos_mapa(ctx: Ctx, b: int, riesgo, dia) -> dict:
         r, cl, v = rm.get(c.cama_id), clima.get(c.cama_id), vars_.get(c.cama_id)
         camas.append({"id": c.cama_id, "num": int(c.cama), "n": int(c.nave),
                       "mitades": LY.mitades_cama(b, int(c.nave), int(c.cama), cfg),
-                      "prob": None if r is None else float(r.prob_ia_7d), "hr": None if cl is None else float(cl.hr)})
+                      "prob": None if r is None else float(r.prob_ia_7d), "hr": None if cl is None else float(cl.hr),
+                      "t": None if cl is None else float(cl.temp_c)})
         tips[c.cama_id] = {
             "nombre": U.sin_bloque(c.cama_id),
             "riesgo": f"{pct(r.prob_ia_7d)} · {LABEL['nivel'][r.nivel]}" if r is not None else "—",

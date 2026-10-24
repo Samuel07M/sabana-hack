@@ -205,6 +205,7 @@ dashboard:
     sep_etiqueta: 22                    # etiqueta N1…N6 a la izquierda de la nave
     altura_max: 26                      # alto de la barra 3D con riesgo o humedad máximos
     altura_robot: 70
+    rango_temp: [8, 24]                 # fuente: supuesto · capa Temperatura: °C del color frío al cálido (simulación ~10–20 °C, altiplano 12–18 °C)
     escala: 0.8                         # px por unidad con zoom 1 (una cama de ~13 px de alto)
     alto_max_px: 560                    # alto visible del mapa; el resto de las naves con scroll vertical
     vista_inicial: {theta: 0, elev: 90, zoom: 1}   # plano: el bloque es alto y angosto
