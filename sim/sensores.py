@@ -1,4 +1,4 @@
-"""Mediciones con ruido: sensor fijo central por bloque y lecturas del dron."""
+"""Mediciones con ruido: sensor fijo central por bloque y lecturas del robot."""
 import numpy as np
 
 

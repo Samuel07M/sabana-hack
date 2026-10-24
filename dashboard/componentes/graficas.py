@@ -30,7 +30,7 @@ def gauge(v, color: str) -> str:
 
 def grafica_clima(lc: pd.DataFrame, sensor: pd.DataFrame, campo: str, h: float, horas: int, ini: str | None, *,
                   vmin: float, vmax: float, unidad: str, color: str, umbral: float | None = None) -> str:
-    """HR o T de las últimas horas: línea del sensor del bloque y puntos del dron en la cama."""
+    """HR o T de las últimas horas: línea del sensor del bloque y puntos del robot en la cama."""
     W, H, pl, pr, pt, pb = 520, 150, 34, 10, 10, 22
     x0 = h - horas
     X = lambda x: pl + (x - x0) / ((h - x0) or 1) * (W - pl - pr)
@@ -140,7 +140,7 @@ def dona(partes: list[tuple], total: int) -> str:
 
 def timeline_inc(i: dict, segs: pd.DataFrame, horas_tratamiento: float, ini: str | None) -> str:
     """Línea de tiempo de una incidencia: sospecha, confirmación, tratamiento, revisitas y cierre."""
-    ev = [(i["hora_creada"], "var(--info)", "Sospecha detectada por el dron",
+    ev = [(i["hora_creada"], "var(--info)", "Sospecha detectada por el robot",
            "Visita prioritaria por predicción de riesgo" if i["origen"] == "prediccion" else "Patrulla rutinaria")]
     if not nulo(i["hora_confirmada"]):
         pref = "" if len(segs) else plural(0 if nulo(i["plantas_afectadas"]) else i["plantas_afectadas"], "planta afectada", "plantas afectadas") + " · "
@@ -153,7 +153,7 @@ def timeline_inc(i: dict, segs: pd.DataFrame, horas_tratamiento: float, ini: str
         ev.append((h, "var(--adv)", "Tratamiento aplicado", "Personal de campo"))
     for s in segs.itertuples():
         ev.append((s.hora, V_RES[s.resultado], f"{LABEL['res'][s.resultado]} · {plural(s.plantas_afectadas, 'planta', 'plantas')}",
-                   f"{esc(s.nota)} · dron {esc(s.dron_id)}"))
+                   f"{esc(s.nota)} · robot {esc(s.robot_id)}"))
     if i["estado"] == "cerrada":
         ev.append((i["hora_cerrada"], "var(--ok)", "Cerrada", "Dos revisitas limpias seguidas"))
     filas = "".join(f'<div class="ev" style="--c:{c}"><div class="h">{"" if nulo(h) else T.etiqueta(h, ini)}</div>'

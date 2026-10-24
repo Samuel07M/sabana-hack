@@ -28,7 +28,7 @@ def test_secuencia_de_la_demo(modelo):
     inc = next(i for i in sim.inc.values() if sim.geo.camas[i["cama"]]["cama_id"] == CAMA)
     seg = [s for s in sim.buf["seguimientos"] if s[1] == inc["id"]]
     assert riesgo < conf <= vent                       # alerta de riesgo → confirmación → ventilación apagada
-    assert inc["origen"] == "prediccion"               # el dron fue por prioridad, no por patrulla
+    assert inc["origen"] == "prediccion"               # el robot fue por prioridad, no por patrulla
     assert seg and seg[0][5] == "mejora" and seg[0][3] - inc["hora_confirmada"] >= 72    # seguimiento ≥ 3 días después
     assert sim.buf["cola_sync"] and all(f[4] is None for f in sim.buf["cola_sync"])      # paso "Sin red"
 

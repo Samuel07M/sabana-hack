@@ -3,9 +3,9 @@
 -- Se cambia solo con acuerdo de los dos (ver NOTAS.md).
 
 CREATE TABLE corridas (
-  corrida_id TEXT PRIMARY KEY,      -- 'demo', 'temporada-7', 'exp-drones-12'
+  corrida_id TEXT PRIMARY KEY,      -- 'demo', 'temporada-7', 'exp-robots-12'
   modo TEXT NOT NULL,               -- 'vivo' | 'temporada' | 'experimento'
-  escenario TEXT NOT NULL,          -- 'actual' | 'sensor_central' | 'drones' | 'drones_celular' | 'drones_sin_vent' | 'demo'
+  escenario TEXT NOT NULL,          -- 'actual' | 'sensor_central' | 'robots' | 'robots_celular' | 'robots_sin_vent' | 'demo'
   semilla INTEGER NOT NULL,
   config_json TEXT NOT NULL,
   inicio_sim TEXT NOT NULL          -- ISO 8601
@@ -21,7 +21,7 @@ CREATE TABLE camas (                -- geometría, una fila por cama
 CREATE TABLE lecturas (             -- temperatura y humedad medidas (no la verdad del simulador)
   corrida_id TEXT, hora INTEGER,    -- hora simulada desde el inicio
   cama_id TEXT, temp_c REAL, hr REAL,
-  fuente TEXT                       -- 'sensor_fijo' | 'dron:B1'
+  fuente TEXT                       -- 'sensor_fijo' | 'robot:B1'
 );
 
 CREATE TABLE riesgo (               -- salida del modelo, una fila por cama por día (06:00)
@@ -42,10 +42,10 @@ CREATE TABLE incidencias (
   verdad_infectada INTEGER          -- solo para validación; el dashboard NO lo muestra
 );
 
-CREATE TABLE seguimientos (         -- registrado automáticamente por el dron
+CREATE TABLE seguimientos (         -- registrado automáticamente por el robot
   seguimiento_id INTEGER PRIMARY KEY,
   incidencia_id INTEGER, corrida_id TEXT, hora INTEGER,
-  dron_id TEXT, resultado TEXT,     -- 'empeora' | 'igual' | 'mejora' | 'limpia'
+  robot_id TEXT, resultado TEXT,     -- 'empeora' | 'igual' | 'mejora' | 'limpia'
   plantas_afectadas INTEGER, nota TEXT
 );
 
@@ -59,8 +59,8 @@ CREATE TABLE alertas (              -- las crea el simulador; el hub solo cambia
   accion TEXT                       -- lo que eligió el agrónomo (valores en config/default.yaml, dashboard.acciones)
 );
 
-CREATE TABLE drones (               -- posición y estado, una fila por cambio
-  corrida_id TEXT, hora REAL, dron_id TEXT, cama_id TEXT,
+CREATE TABLE robots (               -- posición y estado, una fila por cambio
+  corrida_id TEXT, hora REAL, robot_id TEXT, cama_id TEXT,
   estado TEXT,                      -- 'patrulla' | 'prioridad' | 'inspeccionando' | 'carga'
   bateria REAL
 );
@@ -73,7 +73,7 @@ CREATE TABLE ventilacion (          -- la escribe solo el simulador (apagado aut
 
 CREATE TABLE cola_sync (            -- nivel 2: el simulador escribe con hora_recibida NULL; el hub la llena
   id INTEGER PRIMARY KEY,
-  corrida_id TEXT, origen TEXT,     -- 'dron:B1' | 'celular'
+  corrida_id TEXT, origen TEXT,     -- 'robot:B1' | 'celular'
   hora_generada INTEGER, hora_recibida INTEGER,
   tipo TEXT,                        -- 'lectura' | 'inspeccion' | 'seguimiento'
   payload TEXT                      -- JSON con las columnas de la tabla destino

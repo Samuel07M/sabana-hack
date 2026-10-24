@@ -15,8 +15,8 @@ def pantalla(ctx: Ctx) -> None:
          f"Entre la alerta a 7 días y la confirmación ({plural(n_resp, 'caso', 'casos')})" if n_resp
          else "Aún sin casos confirmados tras una alerta"),
         ("check", "var(--ok)", pct(m["tasa"]), "Tasa de confirmación", f"{int(m['conf'])} confirmadas · {int(m['desc'])} descartadas"),
-        ("drone", "var(--insp)", pct(m["cobertura"]), "Cobertura del dron · 24 h", "Camas medidas directamente"),
-        ("repeat", "var(--info)", int(m["revisitas"]), "Revisitas automáticas", "Registradas por el dron"),
+        ("robot", "var(--insp)", pct(m["cobertura"]), "Cobertura del robot · 24 h", "Camas medidas directamente"),
+        ("repeat", "var(--info)", int(m["revisitas"]), "Revisitas automáticas", "Registradas por el robot"),
     ]
     pred, patr = int(m["origen_prediccion"]), int(m["origen_patrulla"])
     por_tipo = {t: int(m[f"tipo_{t}"]) for t in LABEL["tipo"]}
@@ -32,7 +32,7 @@ def pantalla(ctx: Ctx) -> None:
           'background:var(--alto)"></i>Alto</span><span><i style="background:var(--medio)"></i>Medio</span></div></div>'
         + area_riesgo(serie, ctx.ini, vacio)
         + '</div><div class="grid2"><div class="card"><div class="card-hd"><div><h3>Origen de las detecciones</h3>'
-          '<div class="sub">Cómo encontró el dron cada caso</div></div></div><div class="row" style="gap:28px">'
+          '<div class="sub">Cómo encontró el robot cada caso</div></div></div><div class="row" style="gap:28px">'
         + dona([(pred, "var(--accent)"), (patr, "var(--insp)")], pred + patr)
         + f'<div class="stack" style="gap:12px"><div><div class="row" style="gap:8px"><span class="chip c-primary">'
           f'<span class="d"></span>Predicción</span><b class="num">{pred}</b></div><div class="tiny muted" style="margin-top:4px">'

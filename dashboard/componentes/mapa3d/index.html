@@ -59,16 +59,16 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;paddin
 .m-inc .r{fill:none;stroke:var(--crit);stroke-width:2;transform-box:fill-box;transform-origin:center;animation:onda 1.8s ease-out infinite}
 .m-inc .c{fill:var(--crit);stroke:#fff;stroke-width:1.5}
 @keyframes onda{0%{transform:scale(.6);opacity:1}100%{transform:scale(2.4);opacity:0}}
-.m-dron{pointer-events:none;transition:transform .7s cubic-bezier(.4,.1,.2,1)}
-.m-dron .m-cable{fill:var(--dc);opacity:.7;transition:transform .7s cubic-bezier(.4,.1,.2,1)}
-.m-dron .m-sombra{fill:#000;opacity:.25;transition:transform .7s cubic-bezier(.4,.1,.2,1)}
-.m-dron .halo{fill:var(--dc);opacity:.18;transform-box:fill-box;transform-origin:center;animation:halo 2.2s ease-in-out infinite}
+.m-robot{pointer-events:none;transition:transform .7s cubic-bezier(.4,.1,.2,1)}
+.m-robot .m-cable{fill:var(--dc);opacity:.7;transition:transform .7s cubic-bezier(.4,.1,.2,1)}
+.m-robot .m-sombra{fill:#000;opacity:.25;transition:transform .7s cubic-bezier(.4,.1,.2,1)}
+.m-robot .halo{fill:var(--dc);opacity:.18;transform-box:fill-box;transform-origin:center;animation:halo 2.2s ease-in-out infinite}
 @keyframes halo{50%{transform:scale(1.35);opacity:.08}}
-.m-dron .brazo{stroke:var(--dc);stroke-width:2;stroke-linecap:round}
-.m-dron .rotor{fill:color-mix(in srgb,var(--dc) 30%,transparent);stroke:var(--dc);stroke-width:1.4}
-.m-dron .nucleo{fill:var(--dc);stroke:#fff;stroke-width:1.5}
-.m-dron .tag{fill:var(--text);font-size:10.5px;font-weight:700}
-.sin-anim .m-dron,.sin-anim .m-dron *{transition:none!important}
+.m-robot .brazo{stroke:var(--dc);stroke-width:2;stroke-linecap:round}
+.m-robot .rotor{fill:color-mix(in srgb,var(--dc) 30%,transparent);stroke:var(--dc);stroke-width:1.4}
+.m-robot .nucleo{fill:var(--dc);stroke:#fff;stroke-width:1.5}
+.m-robot .tag{fill:var(--text);font-size:10.5px;font-weight:700}
+.sin-anim .m-robot,.sin-anim .m-robot *{transition:none!important}
 #tip{position:fixed;z-index:70;pointer-events:none;background:var(--card);border:1px solid var(--border-2);border-radius:14px;padding:12px 14px;font-size:12.5px;box-shadow:0 18px 40px -14px rgba(0,0,0,.5);display:none;min-width:220px}
 #tip b{font-size:13.5px}
 .kv{display:grid;grid-template-columns:auto auto;gap:4px 16px;margin-top:8px}
@@ -102,7 +102,7 @@ const I={
   plus:'<path d="M12 5v14M5 12h14"/>', minus:'<path d="M5 12h14"/>',
   reset:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
   move:'<path d="m5 9-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/>',
-  drone:'<circle cx="12" cy="12" r="2.2"/><circle cx="5" cy="5" r="2.6"/><circle cx="19" cy="5" r="2.6"/><circle cx="5" cy="19" r="2.6"/><circle cx="19" cy="19" r="2.6"/><path d="m7 7 3.3 3.3M17 7l-3.3 3.3M7 17l3.3-3.3M17 17l-3.3-3.3"/>',
+  robot:'<circle cx="12" cy="12" r="2.2"/><circle cx="5" cy="5" r="2.6"/><circle cx="19" cy="5" r="2.6"/><circle cx="5" cy="19" r="2.6"/><circle cx="19" cy="19" r="2.6"/><path d="m7 7 3.3 3.3M17 7l-3.3 3.3M7 17l3.3-3.3M17 17l-3.3-3.3"/>',
 };
 const ic=(n,s=18,w=1.8)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${I[n]||''}</svg>`;
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -117,7 +117,7 @@ function rampa(stops,v){
 const rgb=(c,f=1)=>`rgb(${c.map(x=>Math.round(clamp(x*f,0,255))).join(',')})`;
 const gradCSS=stops=>`linear-gradient(90deg,${stops.map(([v,c])=>`${rgb(c)} ${Math.round(v*100)}%`).join(',')})`;
 function hexRgb(h){h=h.trim().replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return [(n>>16)&255,(n>>8)&255,n&255];}
-const V_DRON={patrulla:'var(--accent)',prioridad:'var(--adv)',inspeccionando:'var(--insp)',carga:'var(--faint)'};
+const V_ROBOT={patrulla:'var(--accent)',prioridad:'var(--adv)',inspeccionando:'var(--insp)',carga:'var(--faint)'};
 
 let D=null;            // datos del bloque que manda Python
 const CLAVE='mapa3d-vista';
@@ -136,7 +136,7 @@ const Mapa = {
       <defs><filter id="fSombra" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#000" flood-opacity=".22"/></filter>
         <marker id="mkFlujo" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1 9 5 1 9" fill="none" style="stroke:var(--flow)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
       <g id="mSuelo"></g><g id="mCamas" filter="url(#fSombra)"></g><g id="mMarcas"></g><g id="mEtiq"></g>
-      <g id="mDron" class="m-dron">
+      <g id="mRobot" class="m-robot">
         <ellipse class="m-sombra" cx="0" cy="0" rx="11" ry="4.5"/>
         <rect class="m-cable" x="-.8" y="0" width="1.6" height="1"/>
         <circle class="halo" r="17"/>
@@ -232,18 +232,18 @@ const Mapa = {
     document.getElementById('mCamas').innerHTML=g;
     document.getElementById('mMarcas').innerHTML=marcas;
     document.getElementById('mEtiq').innerHTML=etiq;
-    // dron de cable
-    const dg=document.getElementById('mDron'), dr=D.dron, c=dr&&alturaDe.get(dr.cama_id);
+    // robot de riel
+    const dg=document.getElementById('mRobot'), dr=D.robot, c=dr&&alturaDe.get(dr.cama_id);
     if(!c){dg.style.display='none';return;}
     dg.style.display='';
     if(this.bloquePrevio!==b){svg.classList.add('sin-anim');requestAnimationFrame(()=>requestAnimationFrame(()=>{if(!this.drag)svg.classList.remove('sin-anim');}));this.bloquePrevio=b;}
-    const zD=dr.estado==='inspeccionando'?c.h+14:c.h+M.altura_dron;
+    const zD=dr.estado==='inspeccionando'?c.h+14:c.h+M.altura_robot;
     const p=P((c.x0+c.x1)/2,(c.y0+c.y1)/2,zD), L=Math.max(0,(zD-c.h)*cE*s);
-    dg.style.setProperty('--dc',V_DRON[dr.estado]);
+    dg.style.setProperty('--dc',V_ROBOT[dr.estado]);
     dg.style.transform=`translate(${p[0].toFixed(1)}px,${p[1].toFixed(1)}px)`;
     dg.querySelector('.m-cable').style.transform=`scaleY(${L.toFixed(1)})`;
     dg.querySelector('.m-sombra').style.transform=`translate(0px,${L.toFixed(1)}px) scale(${(0.6+0.4*sE).toFixed(2)},${(0.5+0.5*sE).toFixed(2)})`;
-    dg.querySelector('.tag').textContent=`Dron ${dr.dron_id}`;
+    dg.querySelector('.tag').textContent=`Robot ${dr.robot_id}`;
   },
 };
 
@@ -259,7 +259,7 @@ function herramientas(){
     ? `<div class="ramp"><div class="tiny muted" style="font-weight:600">Probabilidad de infección a 7 días</div><div class="g" style="background:${gradCSS(RAMPA_RIESGO)}"></div><div class="t"><span>0 %</span><span>30 %</span><span>60 %</span><span>100 %</span></div></div>`
     : `<div class="ramp"><div class="tiny muted" style="font-weight:600">Humedad relativa (última lectura)</div><div class="g" style="background:${gradCSS(RAMPA_HR)}"></div><div class="t"><span>60 %</span><span>80 %</span><span>90 %</span><span>100 %</span></div></div>`;
   document.getElementById('mapaLeyenda').innerHTML=`${ramp}<div class="spacer"></div>
-    <span class="lg"><span style="color:var(--accent)">${ic('drone',16)}</span>Dron de cable</span>
+    <span class="lg"><span style="color:var(--accent)">${ic('robot',16)}</span>Robot de riel</span>
     <span class="lg"><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="var(--crit)" stroke="#fff" stroke-width="1.5"/></svg>Incidencia abierta</span>
     <span class="lg"><svg width="26" height="6"><line x1="1" y1="3" x2="25" y2="3" stroke="var(--flow)" stroke-width="2" stroke-dasharray="3 4" stroke-linecap="round"/></svg>Flujo de ventilación</span>`;
   ajustarAlto();

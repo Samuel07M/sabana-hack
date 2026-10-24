@@ -1,7 +1,7 @@
 """Única puerta a la base: consultas de solo lectura (una por método del Hub del prototipo).
 
 Todas reciben `corrida_id` y devuelven DataFrames. Nunca devuelven incidencias.verdad_infectada.
-En modo sin red (escenario drones_celular) se oculta lo posterior a la última sincronización
+En modo sin red (escenario robots_celular) se oculta lo posterior a la última sincronización
 (NOTAS.md, decisión 7); el sensor fijo del bloque sigue visible, como en el prototipo.
 """
 import json
@@ -96,15 +96,15 @@ def inicio_sim(corrida_id: str) -> str | None:
 
 
 def red(corrida_id: str) -> str:
-    """'sin_red' si la corrida es drones_celular; si no, 'local'."""
+    """'sin_red' si la corrida es robots_celular; si no, 'local'."""
     esc = _uno("SELECT escenario FROM corridas WHERE corrida_id=?", (corrida_id,))
-    return "sin_red" if esc == "drones_celular" else "local"
+    return "sin_red" if esc == "robots_celular" else "local"
 
 
 def ahora(corrida_id: str) -> float:
-    """Hora simulada actual: la mayor hora escrita en lecturas o drones."""
+    """Hora simulada actual: la mayor hora escrita en lecturas o robots."""
     v = _uno("SELECT MAX(h) FROM (SELECT MAX(hora) h FROM lecturas WHERE corrida_id=? "
-             "UNION ALL SELECT MAX(hora) FROM drones WHERE corrida_id=?)", (corrida_id, corrida_id))
+             "UNION ALL SELECT MAX(hora) FROM robots WHERE corrida_id=?)", (corrida_id, corrida_id))
     return float(v) if v is not None else 0.0
 
 
@@ -170,7 +170,7 @@ def _sensor_cama(corrida_id: str, bloque: int) -> str | None:
 
 
 def lecturas_cama(corrida_id: str, cama_id: str, desde: float, hasta: float) -> pd.DataFrame:
-    """Lecturas del dron en la cama y del sensor del bloque entre dos horas; columna `serie` = cama | sensor."""
+    """Lecturas del robot en la cama y del sensor del bloque entre dos horas; columna `serie` = cama | sensor."""
     c = corte(corrida_id)
     cama = _q("SELECT hora, cama_id, temp_c, hr, fuente FROM lecturas WHERE corrida_id=? AND cama_id=? "
               "AND fuente!='sensor_fijo' AND hora BETWEEN ? AND ? AND hora < ? ORDER BY hora",
@@ -184,10 +184,10 @@ def lecturas_cama(corrida_id: str, cama_id: str, desde: float, hasta: float) -> 
     return pd.concat([cama, sens], ignore_index=True) if len(sens) else cama
 
 
-def _clima_de(fila_dron, sensor: pd.DataFrame, h: float):
-    """Regla del prototipo: lectura del dron de las últimas 24 h, o el sensor del bloque de las últimas 6 h."""
-    if fila_dron is not None and h - fila_dron["hora"] <= 24:
-        return fila_dron
+def _clima_de(fila_robot, sensor: pd.DataFrame, h: float):
+    """Regla del prototipo: lectura del robot de las últimas 24 h, o el sensor del bloque de las últimas 6 h."""
+    if fila_robot is not None and h - fila_robot["hora"] <= 24:
+        return fila_robot
     s = sensor[(sensor["hora"] <= h) & (sensor["hora"] >= max(0, h - 6))]
     return s.iloc[-1] if len(s) else None
 
@@ -222,7 +222,7 @@ def clima_actual(corrida_id: str, cama_id: str) -> pd.DataFrame:
 def variables_bloque(corrida_id: str, bloque: int) -> pd.DataFrame:
     """variables() del prototipo para todas las camas del bloque, leyendo de la base."""
     cfg = cargar()
-    mp, Mo = cfg["dashboard"]["mock"]["modelo_prueba"], cfg["dashboard"]["mock"]["drones"]
+    mp, Mo = cfg["dashboard"]["mock"]["modelo_prueba"], cfg["dashboard"]["mock"]["robots"]
     h, c = ahora(corrida_id), corte(corrida_id)
     fin = int(math.floor(h)) + 1
     desde = fin - mp["ventana_h"] - Mo["horas_validez_lectura"]
@@ -334,7 +334,7 @@ def incidencias(corrida_id: str, cama_id: str | None = None, bloque: int | None 
 
 
 def seguimientos(corrida_id: str, incidencia_id: int | None = None) -> pd.DataFrame:
-    """Revisitas del dron, en orden de hora."""
+    """Revisitas del robot, en orden de hora."""
     sql = "SELECT * FROM seguimientos WHERE corrida_id=? AND hora < ?"
     p: list = [corrida_id, _lim(corte(corrida_id))]
     if incidencia_id is not None:
@@ -343,26 +343,26 @@ def seguimientos(corrida_id: str, incidencia_id: int | None = None) -> pd.DataFr
     return _q(sql + " ORDER BY hora, seguimiento_id", p)
 
 
-# ── drones ───────────────────────────────────────────────────────────────────
-def drones_actual(corrida_id: str) -> pd.DataFrame:
-    """Última fila visible de cada dron."""
-    return _q("SELECT d.* FROM drones d JOIN (SELECT dron_id, MAX(rowid) r FROM drones WHERE corrida_id=? "
-              "AND hora < ? GROUP BY dron_id) m ON d.rowid=m.r ORDER BY d.dron_id",
+# ── robots ───────────────────────────────────────────────────────────────────
+def robots_actual(corrida_id: str) -> pd.DataFrame:
+    """Última fila visible de cada robot."""
+    return _q("SELECT d.* FROM robots d JOIN (SELECT robot_id, MAX(rowid) r FROM robots WHERE corrida_id=? "
+              "AND hora < ? GROUP BY robot_id) m ON d.rowid=m.r ORDER BY d.robot_id",
               (corrida_id, _lim(corte(corrida_id))))
 
 
-def prioridades_dron(corrida_id: str, dron_id: str) -> pd.DataFrame:
-    """Cola de prioridad: camas en 'alto' del último cálculo que el dron aún no atiende (máx. top_camas)."""
+def prioridades_robot(corrida_id: str, robot_id: str) -> pd.DataFrame:
+    """Cola de prioridad: camas en 'alto' del último cálculo que el robot aún no atiende (máx. top_camas)."""
     cfg = cargar()
     r = riesgo_ultimo(corrida_id)
-    bloque = int("".join(ch for ch in dron_id if ch.isdigit()) or 0)
+    bloque = int("".join(ch for ch in robot_id if ch.isdigit()) or 0)
     if r.empty:
         return r
     r = r[(r["nivel"] == "alto") & r["cama_id"].str.startswith(f"B{bloque}-")]
     desde = int(r["dia"].max()) * 24 + cfg["riesgo"]["hora_calculo"] if len(r) else 0
-    atendidas = set(_q("SELECT DISTINCT cama_id FROM drones WHERE corrida_id=? AND dron_id=? AND hora >= ? "
+    atendidas = set(_q("SELECT DISTINCT cama_id FROM robots WHERE corrida_id=? AND robot_id=? AND hora >= ? "
                        "AND hora < ? AND estado IN ('prioridad','inspeccionando')",
-                       (corrida_id, dron_id, desde, _lim(corte(corrida_id))))["cama_id"])
+                       (corrida_id, robot_id, desde, _lim(corte(corrida_id))))["cama_id"])
     abiertas = set(incidencias(corrida_id, bloque=bloque, grupo="abiertas")["cama_id"])
     r = r[~r["cama_id"].isin(atendidas | abiertas)]
     r = r.sort_values(["prob_ia_7d", "cama_id"], ascending=[False, True])
@@ -370,8 +370,8 @@ def prioridades_dron(corrida_id: str, dron_id: str) -> pd.DataFrame:
 
 
 def ultima_visita(corrida_id: str, cama_id: str) -> pd.DataFrame:
-    """Última vez que un dron estuvo en la cama (0 o 1 fila)."""
-    return _q("SELECT * FROM drones WHERE corrida_id=? AND cama_id=? AND hora < ? ORDER BY hora DESC, rowid DESC "
+    """Última vez que un robot estuvo en la cama (0 o 1 fila)."""
+    return _q("SELECT * FROM robots WHERE corrida_id=? AND cama_id=? AND hora < ? ORDER BY hora DESC, rowid DESC "
               "LIMIT 1", (corrida_id, cama_id, _lim(corte(corrida_id))))
 
 
@@ -396,7 +396,7 @@ def ventilacion_historial(corrida_id: str, n: int | None = None) -> pd.DataFrame
 
 # ── sincronización ───────────────────────────────────────────────────────────
 def cola_pendiente(corrida_id: str) -> pd.DataFrame:
-    """Datos guardados en los drones que aún no llegan (hora_recibida NULL)."""
+    """Datos guardados en los robots que aún no llegan (hora_recibida NULL)."""
     return _q("SELECT id, corrida_id, origen, hora_generada, hora_recibida, tipo FROM cola_sync "
               "WHERE corrida_id=? AND hora_recibida IS NULL ORDER BY id", (corrida_id,))
 
@@ -408,7 +408,7 @@ def ultima_sync(corrida_id: str) -> pd.DataFrame:
 
 # ── métricas ─────────────────────────────────────────────────────────────────
 def cobertura(corrida_id: str, horas: float = 24, bloque: int | None = None) -> pd.DataFrame:
-    """Fracción de camas medidas directamente por el dron en las últimas `horas` (columna `cobertura`)."""
+    """Fracción de camas medidas directamente por el robot en las últimas `horas` (columna `cobertura`)."""
     h, c = ahora(corrida_id), corte(corrida_id)
     tot = len(camas(bloque))
     sql = ("SELECT COUNT(DISTINCT cama_id) FROM lecturas WHERE corrida_id=? AND fuente!='sensor_fijo' "

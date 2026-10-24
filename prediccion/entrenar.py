@@ -79,7 +79,7 @@ def main() -> None:
     train, test = rango(cfg["entrenamiento"]["semillas_train"]), rango(cfg["entrenamiento"]["semillas_test"])
     assert not set(train) & set(test), "las semillas de entrenamiento y prueba no pueden cruzarse"
     filas, importancia = [], []
-    for variante, escenario in (("completo", "drones"), ("central", "sensor_central")):
+    for variante, escenario in (("completo", "robots"), ("central", "sensor_central")):
         d_train, d_test = generar(cfg, escenario, train), generar(cfg, escenario, test)
         modelo = entrenar_modelo(cfg, d_train)
         ia.guardar(modelo, variante, {"escenario_entrenamiento": escenario, "semillas_train": list(train)})

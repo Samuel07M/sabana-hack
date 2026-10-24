@@ -11,11 +11,11 @@ from sim.config import RAIZ, cargar_config
 
 RESULTADOS = RAIZ / "data" / "resultados"
 FONDO, TEXTO, REJILLA = "#0f172a", "#e2e8f0", "#334155"
-COLORES = {"actual": "#94a3b8", "sensor_central": "#fbbf24", "drones": "#34d399",
-           "drones_celular": "#60a5fa", "drones_sin_vent": "#f472b6",
+COLORES = {"actual": "#94a3b8", "sensor_central": "#fbbf24", "robots": "#34d399",
+           "robots_celular": "#60a5fa", "robots_sin_vent": "#f472b6",
            "reglas": "#fbbf24", "IA": "#34d399", "IA solo sensor central": "#f87171"}
-NOMBRES = {"actual": "Actual\n(sensor + ronda manual)", "sensor_central": "Sensor central\n+ modelo", "drones": "Drones\n(nuestra solución)",
-           "drones_celular": "Drones\nsin internet (celular)", "drones_sin_vent": "Drones sin apagar\nventilación"}
+NOMBRES = {"actual": "Actual\n(sensor + ronda manual)", "sensor_central": "Sensor central\n+ modelo", "robots": "Robots\n(nuestra solución)",
+           "robots_celular": "Robots\nsin internet (celular)", "robots_sin_vent": "Robots sin apagar\nventilación"}
 ESCENARIOS = list(NOMBRES)
 
 
@@ -68,10 +68,10 @@ def g1_anticipacion(df: pd.DataFrame) -> None:
 
 
 def g2_afectadas(series: pd.DataFrame) -> None:
-    """Plantas afectadas en el tiempo: actual vs. drones (media ± IC 95 %)."""
+    """Plantas afectadas en el tiempo: actual vs. robots (media ± IC 95 %)."""
     fig = _figura("Plantas afectadas durante la temporada", "Media de las semillas ± IC 95 % · latentes + con síntomas + perdidas")
     ax = _eje(fig, 0.07, 0.12, 0.90, 0.70)
-    for e in ("actual", "drones"):
+    for e in ("actual", "robots"):
         s = series[series.escenario == e].pivot(index="dia", columns="semilla", values="afectadas") * 100
         m, se = s.mean(axis=1), s.std(axis=1, ddof=1) / np.sqrt(s.shape[1])
         ax.plot(s.index, m, color=COLORES[e], linewidth=4, label=NOMBRES[e].replace("\n", " "))
@@ -88,7 +88,7 @@ def g3_curvas(riesgo: pd.DataFrame) -> None:
     """ROC y PR: reglas vs. IA vs. IA solo con sensor central."""
     fig = _figura("¿Qué tan bien ordena el riesgo cada modelo?", "Semillas de validación (nunca vistas en el entrenamiento) · riesgo de infección a 7 días por cama y día")
     ax_roc, ax_pr = _eje(fig, 0.06, 0.12, 0.41, 0.70), _eje(fig, 0.55, 0.12, 0.41, 0.70)
-    d, c = riesgo[riesgo.escenario == "drones"], riesgo[riesgo.escenario == "sensor_central"]
+    d, c = riesgo[riesgo.escenario == "robots"], riesgo[riesgo.escenario == "sensor_central"]
     for nombre, datos, col in (("reglas", d, "reglas"), ("IA", d, "prob"), ("IA solo sensor central", c, "prob")):
         y, p = datos["y"].to_numpy(), datos[col].to_numpy()
         fpr, tpr, _ = roc_curve(y, p)
@@ -144,22 +144,22 @@ def g6_red_vs_celular(df: pd.DataFrame) -> None:
     """Anticipación con red local vs. con celular (pareada por semilla)."""
     fig = _figura("Costo del peor caso: sin internet", "Misma semilla, red local vs. celular que pasa una vez al día (7-15 h) · días de anticipación")
     ax = _eje(fig, 0.07, 0.12, 0.90, 0.70)
-    p = df.pivot(index="semilla", columns="escenario", values="anticipacion_dias")[["drones", "drones_celular"]].dropna()
+    p = df.pivot(index="semilla", columns="escenario", values="anticipacion_dias")[["robots", "robots_celular"]].dropna()
     for _, f in p.iterrows():
-        ax.plot([1, 2], [f["drones"], f["drones_celular"]], color="#64748b", alpha=0.5, linewidth=1.5, zorder=1)
-    for i, e in enumerate(("drones", "drones_celular"), start=1):
+        ax.plot([1, 2], [f["robots"], f["robots_celular"]], color="#64748b", alpha=0.5, linewidth=1.5, zorder=1)
+    for i, e in enumerate(("robots", "robots_celular"), start=1):
         ax.scatter(np.full(len(p), i), p[e], s=60, color=COLORES[e], zorder=3)
         ax.plot([i - 0.2, i + 0.2], [p[e].mean()] * 2, color=COLORES[e], linewidth=6, zorder=4)
         ax.text(i + 0.25, p[e].mean(), f"{p[e].mean():.1f} d", color=COLORES[e], fontsize=26, fontweight="bold", va="center")
-    dif = (p["drones"] - p["drones_celular"]).mean()
+    dif = (p["robots"] - p["robots_celular"]).mean()
     ax.set_title(f"Se pierden {dif:.1f} días de anticipación en promedio, pero seguimos avisando antes" if dif > 0
                  else f"Diferencia media: {dif:.1f} días (el celular no cambia la anticipación de forma apreciable)", fontsize=22, pad=14)
-    ax.set_xticks([1, 2], [NOMBRES["drones"], NOMBRES["drones_celular"]])
+    ax.set_xticks([1, 2], [NOMBRES["robots"], NOMBRES["robots_celular"]])
     ax.set_xlim(0.5, 2.7)
     ax.set_ylabel("días de anticipación")
     q = df.pivot(index="semilla", columns="escenario", values=["retraso_deteccion_dias", "afectadas_final", "plantas_perdidas"])
-    d_ret = (q["retraso_deteccion_dias"]["drones_celular"] - q["retraso_deteccion_dias"]["drones"]).mean()
-    d_af = (q["afectadas_final"]["drones_celular"] - q["afectadas_final"]["drones"]).mean() * 100
+    d_ret = (q["retraso_deteccion_dias"]["robots_celular"] - q["retraso_deteccion_dias"]["robots"]).mean()
+    d_af = (q["afectadas_final"]["robots_celular"] - q["afectadas_final"]["robots"]).mean() * 100
     fig.text(0.5, 0.04, f"Lo que sí cuesta no tener red: la confirmación tarda {d_ret:+.1f} días más y termina {d_af:+.2f} puntos más de plantas afectadas",
              ha="center", fontsize=20, color="#94a3b8")
     _guardar(fig, "6_red_local_vs_celular.png")

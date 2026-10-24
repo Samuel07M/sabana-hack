@@ -12,7 +12,7 @@ I = {
     "clip": '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
     "wind": '<path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/>',
     "chart": '<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>',
-    "drone": '<circle cx="12" cy="12" r="2.2"/><circle cx="5" cy="5" r="2.6"/><circle cx="19" cy="5" r="2.6"/><circle cx="5" cy="19" r="2.6"/><circle cx="19" cy="19" r="2.6"/><path d="m7 7 3.3 3.3M17 7l-3.3 3.3M7 17l3.3-3.3M17 17l-3.3-3.3"/>',
+    "robot": '<circle cx="12" cy="12" r="2.2"/><circle cx="5" cy="5" r="2.6"/><circle cx="19" cy="5" r="2.6"/><circle cx="5" cy="19" r="2.6"/><circle cx="19" cy="19" r="2.6"/><path d="m7 7 3.3 3.3M17 7l-3.3 3.3M7 17l3.3-3.3M17 17l-3.3-3.3"/>',
     "drop": '<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>',
     "thermo": '<path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/>',
     "alert": '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
@@ -43,7 +43,7 @@ LABEL = {
              "ventilacion": "Ventilación", "descartada": "Descartada"},
     "inc": {"sospecha": "Sospecha", "confirmada": "Confirmada", "en_tratamiento": "En tratamiento",
             "en_seguimiento": "En seguimiento", "cerrada": "Cerrada", "descartada": "Descartada"},
-    "dron": {"patrulla": "Patrulla", "prioridad": "Prioridad", "inspeccionando": "Inspeccionando", "carga": "Cargando"},
+    "robot": {"patrulla": "Patrulla", "prioridad": "Prioridad", "inspeccionando": "Inspeccionando", "carga": "Cargando"},
     "res": {"empeora": "Empeora", "igual": "Igual", "mejora": "Mejora", "limpia": "Limpia"},
     "origen": {"prediccion": "Predicción", "patrulla": "Patrulla"},
     "accion": {"inspeccion_priorizada": "Priorizar inspección", "monitorear": "Monitorear", "ignorar": "Ignorar",
@@ -58,8 +58,8 @@ C_INC = {"sospecha": "c-info", "confirmada": "c-critica", "en_tratamiento": "c-a
          "en_seguimiento": "c-primary", "cerrada": "c-ok", "descartada": "c-mute"}
 V_INC = {"sospecha": "var(--info)", "confirmada": "var(--crit)", "en_tratamiento": "var(--adv)",
          "en_seguimiento": "var(--accent)", "cerrada": "var(--ok)", "descartada": "var(--faint)"}
-C_DRON = {"patrulla": "c-primary", "prioridad": "c-advertencia", "inspeccionando": "c-insp", "carga": "c-mute"}
-V_DRON = {"patrulla": "var(--accent)", "prioridad": "var(--adv)", "inspeccionando": "var(--insp)",
+C_ROBOT = {"patrulla": "c-primary", "prioridad": "c-advertencia", "inspeccionando": "c-insp", "carga": "c-mute"}
+V_ROBOT = {"patrulla": "var(--accent)", "prioridad": "var(--adv)", "inspeccionando": "var(--insp)",
           "carga": "var(--faint)"}
 V_RES = {"empeora": "var(--crit)", "igual": "var(--adv)", "mejora": "var(--accent)", "limpia": "var(--ok)"}
 ABIERTA = lambda e: e not in ("cerrada", "descartada")

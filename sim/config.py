@@ -14,7 +14,7 @@ OBLIGATORIAS = (
     "geometria.posiciones_esquina", "geometria.separacion_camas_m",
     "geometria.separacion_plantas_m",
     "riesgo.umbral_alto", "riesgo.umbral_medio", "riesgo.hora_calculo",
-    "drones.sens_latente", "drones.sens_sintomas", "drones.especificidad",
+    "robots.sens_latente", "robots.sens_sintomas", "robots.especificidad",
     "enfermedad.eficacia_tratamiento", "enfermedad.latencia_dias",
     "alertas.severidad",
 )
@@ -23,8 +23,8 @@ ENTEROS_POSITIVOS = (
     "geometria.naves_por_bloque", "geometria.camas_por_nave", "geometria.plantas_por_cama",
 )
 PROBABILIDADES = (
-    "riesgo.umbral_alto", "riesgo.umbral_medio", "drones.sens_latente",
-    "drones.sens_sintomas", "drones.especificidad", "enfermedad.eficacia_tratamiento",
+    "riesgo.umbral_alto", "riesgo.umbral_medio", "robots.sens_latente",
+    "robots.sens_sintomas", "robots.especificidad", "enfermedad.eficacia_tratamiento",
 )
 RANGOS = (  # listas [min, max] con min <= max
     "enfermedad.latencia_dias", "enfermedad.sintomas_a_perdida_dias",

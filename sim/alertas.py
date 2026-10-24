@@ -52,6 +52,6 @@ def ventilacion(cama, horas) -> tuple[str, str]:
 
 
 def seguimiento(cama, resultado, afectadas) -> tuple[str, str]:
-    """(titulo, mensaje) de una revisita del dron."""
+    """(titulo, mensaje) de una revisita del robot."""
     return (f"Seguimiento: {resultado}",
             f"Revisita {ubicacion(cama)}: {resultado}, {_plantas(afectadas)}.")

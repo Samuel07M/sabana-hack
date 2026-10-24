@@ -3,7 +3,7 @@
 Dueño: **Santiago** (Ing. Matemática). Carpetas: `sim/`, `prediccion/`, `analisis/`.
 Lee primero `CLAUDE.md` (contrato de datos y convenciones).
 
-**Objetivo:** un simulador de invernadero con drones de cable que genere datos realistas, un modelo que prediga infección por cama a 7 días, y evidencia numérica de que el sistema detecta antes que la práctica actual.
+**Objetivo:** un simulador de invernadero con robots de riel que genere datos realistas, un modelo que prediga infección por cama a 7 días, y evidencia numérica de que el sistema detecta antes que la práctica actual.
 
 **Regla de oro:** primero que todo corra de punta a punta con valores simples; después se afina.
 
@@ -13,7 +13,7 @@ Lee primero `CLAUDE.md` (contrato de datos y convenciones).
 
 1. **Contrato de datos con Samuel**
    - Revisar juntos `contrato/schema.sql` (en `CLAUDE.md`) y congelarlo.
-   - Acordar quién escribe qué: yo escribo `corridas`, `camas`, `lecturas`, `riesgo`, `incidencias`, `seguimientos`, `drones`, `ventilacion` y `cola_sync`. Samuel lee todo y escribe el estado y la acción de las alertas.
+   - Acordar quién escribe qué: yo escribo `corridas`, `camas`, `lecturas`, `riesgo`, `incidencias`, `seguimientos`, `robots`, `ventilacion` y `cola_sync`. Samuel lee todo y escribe el estado y la acción de las alertas.
 2. **Parámetros biológicos de Sara B.: recibidos** (`Scientificic information.pdf`) y ya pasados a `config/default.yaml`:
    - Clima del altiplano 12–18 °C, HR > 70 %. Óptimo de Botrytis 16–20 °C, germina de 5 a 30 °C.
    - Mojado: HR ≥ 95 % (Broome), una pausa seca > 4 h reinicia el conteo; el riego también moja.
@@ -88,7 +88,7 @@ Chequeos del PDF que deben salir así (prueba en `tests/`): 24 h a 21 °C → 0,
 ## Fase 3 · Modelo predictivo (01:30–03:30)
 
 ### 3.1 Qué sabe el sistema (sin trampa) · `prediccion/variables.py`
-Las variables se calculan **solo con lo que la finca conocería**: lecturas (sensor fijo o dron) e incidencias confirmadas. **Nunca** con el estado real de las plantas.
+Las variables se calculan **solo con lo que la finca conocería**: lecturas (sensor fijo o robot) e incidencias confirmadas. **Nunca** con el estado real de las plantas.
 
 Para cada cama, cada día a las 06:00:
 - `temp_media_24h`, `temp_min_24h`, `temp_max_24h`
@@ -132,28 +132,28 @@ Cada día a las 06:00 el simulador calcula `riesgo_reglas` y `prob_ia_7d` por ca
 
 ## Descanso (03:30–06:30)
 
-Antes de parar: entregar a Samuel un `data/finca.db` **parcial** (clima, lecturas, riesgo, alertas; sin drones). Acordado en `NOTAS.md`.
+Antes de parar: entregar a Samuel un `data/finca.db` **parcial** (clima, lecturas, riesgo, alertas; sin robots). Acordado en `NOTAS.md`.
 
 ---
 
-## Fase 4 · Drones de cable y seguimiento (06:30–08:00) · `sim/drones.py`
+## Fase 4 · Robots de riel y seguimiento (06:30–08:00) · `sim/robots.py`
 
-Un dron por bloque. Estados: `patrulla → prioridad → inspeccionando → carga`.
+Un robot por bloque. Estados: `patrulla → prioridad → inspeccionando → carga`.
 
 - **Patrulla rutinaria:** recorre las camas del bloque en orden (1 → 72 → 1…). Tiempo por cama: `min_por_cama` (por defecto 6 min, incluye bajar la cámara en varios puntos). En cada cama:
-  - Mide `T` y `HR` de esa cama (con ruido) → `lecturas` con `fuente='dron:B{n}'`. **Así el dron reemplaza los sensores que faltan.**
+  - Mide `T` y `HR` de esa cama (con ruido) → `lecturas` con `fuente='robot:B{n}'`. **Así el robot reemplaza los sensores que faltan.**
   - Inspecciona: cada planta latente se detecta con `sens_latente` (baja, ej. 0.25), con síntomas con `sens_sintomas` (ej. 0.9); falsos positivos con `1 − especificidad`.
-- **Prioridad:** si una cama de su bloque tiene `nivel='alto'` y no se visitó en las últimas 24 h, el dron interrumpe la patrulla y va ahí primero (cola ordenada por `prob_ia_7d`).
+- **Prioridad:** si una cama de su bloque tiene `nivel='alto'` y no se visitó en las últimas 24 h, el robot interrumpe la patrulla y va ahí primero (cola ordenada por `prob_ia_7d`).
 - **Hallazgo:** crea incidencia `sospecha` → si la inspección da positivo, `confirmada` + alerta `critica`:
   `Botrytis confirmada · B1 · Nave 2 · Cama 14 · posición 22. 3 plantas afectadas (confianza 0.88).`
   Si da negativo: `descartada` + alerta `info`.
 - **Ventilación:** si se confirma en una nave con `tiene_ventilacion=1`, apagarla 48 h → `ventilacion` + alerta `ventilacion`.
 - **Tratamiento:** el personal trata la zona `horas_hasta_tratamiento` después (por defecto 6 h) → `en_tratamiento`.
-- **Seguimiento automático:** el dron vuelve cada `dias_revisita` (por defecto 3) y escribe en `seguimientos` el resultado (`empeora`, `igual`, `mejora`, `limpia`). Dos revisitas `limpia` seguidas → `cerrada`. Si `empeora` → vuelve a `confirmada` y se trata de nuevo.
-- Escribir la posición del dron en `drones` en cada cambio de cama (para que el dashboard lo anime).
+- **Seguimiento automático:** el robot vuelve cada `dias_revisita` (por defecto 3) y escribe en `seguimientos` el resultado (`empeora`, `igual`, `mejora`, `limpia`). Dos revisitas `limpia` seguidas → `cerrada`. Si `empeora` → vuelve a `confirmada` y se trata de nuevo.
+- Escribir la posición del robot en `robots` en cada cambio de cama (para que el dashboard lo anime).
 - Batería: baja por hora de trabajo; a `bateria_min` va a cargar `horas_carga`.
 
-**Listo cuando:** en una temporada `drones` hay incidencias en todos los estados y seguimientos registrados solos.
+**Listo cuando:** en una temporada `robots` hay incidencias en todos los estados y seguimientos registrados solos.
 
 ---
 
@@ -163,10 +163,10 @@ Un dron por bloque. Estados: `patrulla → prioridad → inspeccionando → carg
 | Escenario | Qué tiene |
 |---|---|
 | `actual` | Sensor central + revisión manual (prob. de ver síntomas `p_humano` por pasada, una pasada por cama cada `dias_ronda`). Sin predicción. |
-| `sensor_central` | Sensor central + modelo predictivo + dron que solo va cuando hay alerta. |
-| `drones` | Drones patrullando y midiendo + modelo + prioridad + seguimiento. **Nuestra solución.** |
-| `drones_celular` | Igual que `drones`, pero sin red: los datos llegan al modelo solo cuando un trabajador pasa con el celular (una vez al día, hora aleatoria entre 7 y 15 h). Usa `cola_sync`. |
-| `drones_sin_vent` | `drones` sin apagar la ventilación (para medir el aporte de ese control). |
+| `sensor_central` | Sensor central + modelo predictivo + robot que solo va cuando hay alerta. |
+| `robots` | Robots patrullando y midiendo + modelo + prioridad + seguimiento. **Nuestra solución.** |
+| `robots_celular` | Igual que `robots`, pero sin red: los datos llegan al modelo solo cuando un trabajador pasa con el celular (una vez al día, hora aleatoria entre 7 y 15 h). Usa `cola_sync`. |
+| `robots_sin_vent` | `robots` sin apagar la ventilación (para medir el aporte de ese control). |
 
 ### 5.2 Métricas · `analisis/metricas.py`
 - **Días de anticipación:** por cada foco, (día de los primeros síntomas) − (día de la primera alerta `alto` o confirmación en esa cama). Positivo = avisamos antes de que se vea.
@@ -174,28 +174,28 @@ Un dron por bloque. Estados: `patrulla → prioridad → inspeccionando → carg
 - **Plantas afectadas** al final de la temporada (latentes + síntomas + perdidas) y en el pico.
 - **Falsas alarmas:** alertas `alto` sin infección en los 7 días siguientes; incidencias `descartada`.
 - **Focos no detectados:** camas con ≥ 5 plantas con síntomas que nunca se confirmaron a tiempo.
-- **Modelo:** AUC, PR-AUC y aciertos en el top-10 de camas por día (lo que el dron alcanza a visitar), reglas vs. IA vs. IA solo con sensor central.
-- **Costo del peor caso:** cuántos días de anticipación se pierden en `drones_celular` frente a `drones`.
+- **Modelo:** AUC, PR-AUC y aciertos en el top-10 de camas por día (lo que el robot alcanza a visitar), reglas vs. IA vs. IA solo con sensor central.
+- **Costo del peor caso:** cuántos días de anticipación se pierden en `robots_celular` frente a `robots`.
 
 ### 5.3 Corridas
 `python -m analisis.validar --semillas 30` → `data/resultados/metricas.parquet`. Reportar media e intervalo de confianza del 95 % (bootstrap) y diferencias pareadas por semilla.
 
 ### 5.4 Gráficas para las slides · `analisis/graficas.py` (PNG 1920×1080, fondo oscuro)
 1. Días de anticipación por escenario (cajas).
-2. Plantas afectadas en el tiempo, `actual` vs. `drones` (media ± IC).
+2. Plantas afectadas en el tiempo, `actual` vs. `robots` (media ± IC).
 3. Curva ROC/PR: reglas vs. IA vs. IA solo con sensor central.
 4. Importancia de variables del modelo.
 5. Tabla de errores: aciertos, falsas alarmas, no detectados.
 6. Anticipación con red local vs. con celular.
 
-**Casos donde falla (mostrarlos, el jurado lo valora):** periodos secos con contagio por aire; latentes que la cámara no ve; muchos focos a la vez con un solo dron por bloque.
+**Casos donde falla (mostrarlos, el jurado lo valora):** periodos secos con contagio por aire; latentes que la cámara no ve; muchos focos a la vez con un solo robot por bloque.
 
 ---
 
 ## Fase 6 · Demo y cierre (10:30–12:00)
 
 1. **Escenario de demo** `config/demo.yaml`: Bloque 1, foco latente sembrado en Nave 2 · Cama 14 el día 1; evento húmedo la noche del día 2; ventilación encendida en la Nave 2.
-   Secuencia esperada en ~3 minutos de demo: alerta de riesgo a 7 días → el dron cambia de patrulla a prioridad → inspecciona → confirmada → ventilación apagada (automática, con alerta) → seguimiento automático 3 días después → `mejora` → modo *Sin red* (`run_vivo` escribe `cola_sync`; Samuel muestra *Pasa el celular*).
+   Secuencia esperada en ~3 minutos de demo: alerta de riesgo a 7 días → el robot cambia de patrulla a prioridad → inspecciona → confirmada → ventilación apagada (automática, con alerta) → seguimiento automático 3 días después → `mejora` → modo *Sin red* (`run_vivo` escribe `cola_sync`; Samuel muestra *Pasa el celular*).
 2. **A las 09:30** (acordado en `NOTAS.md`, adelantar este punto) entregar a Samuel el comando `python -m sim.run_vivo --config config/demo.yaml --velocidad 1` (1 hora simulada por segundo) y verificar con él que el dashboard lo muestra.
 3. Slides de evidencia e IA con Sara D. Mensajes:
    - “Avisamos X días antes de que la enfermedad se vea.”
@@ -220,17 +220,17 @@ Todos los parámetros viven en `config/default.yaml` (ya creado), con su fuente:
 ## Si voy tarde: qué cortar (en este orden)
 
 1. Una sola enfermedad (Botrytis).
-2. Batería de los drones.
-3. Escenario `drones_sin_vent`.
+2. Batería de los robots.
+3. Escenario `robots_sin_vent`.
 4. Bajar a 15 semillas.
 
-**Nunca cortar:** la predicción a 7 días con la IA comparada contra las reglas, los drones con patrulla y prioridad, el seguimiento automático, el escenario `drones_celular` y la gráfica de anticipación con sus errores.
+**Nunca cortar:** la predicción a 7 días con la IA comparada contra las reglas, los robots con patrulla y prioridad, el seguimiento automático, el escenario `robots_celular` y la gráfica de anticipación con sus errores.
 
 ---
 
 ## Checklist de entrega a Samuel
 
-- [ ] `data/finca.db` de una temporada `drones` con todas las tablas llenas (para que construya el dashboard).
+- [ ] `data/finca.db` de una temporada `robots` con todas las tablas llenas (para que construya el dashboard).
 - [ ] `run_vivo` escribiendo hora a hora sin bloquear la lectura (SQLite en modo WAL).
 - [ ] Escenario `demo` que produce la secuencia completa en menos de 3 minutos.
 - [ ] Gráficas en `data/resultados/` para la pestaña de evidencia.

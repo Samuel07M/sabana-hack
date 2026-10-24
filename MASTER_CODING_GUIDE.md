@@ -40,7 +40,7 @@ Sistema **simulado** (no hay hardware) para detectar a tiempo **Botrytis** en in
 Flujo lineal (el corazón de la propuesta):
 
 ```
- Predicción (06:00 diario)        Detección (dron de cable)          Seguimiento (automático)
+ Predicción (06:00 diario)        Detección (robot de riel)          Seguimiento (automático)
  ─────────────────────────        ─────────────────────────          ────────────────────────
  variables por cama        ──►    patrulla 1→72→1 por bloque  ──►    revisita cada 3 días
  reglas + IA (prob. 7 días)       prioridad a camas 'alto'           empeora / igual / mejora / limpia
@@ -53,7 +53,7 @@ Flujo lineal (el corazón de la propuesta):
 | Nivel | Situación | Cómo llegan los datos |
 |---|---|---|
 | 1 | Hub local con red propia (wifi/radio, sin internet) | Tiempo real |
-| 2 | Peor caso: sin red | El dron guarda; un celular descarga por Bluetooth cuando pasa un trabajador, corre el modelo ahí y sincroniza al encontrar señal (`cola_sync`) |
+| 2 | Peor caso: sin red | El robot guarda; un celular descarga por Bluetooth cuando pasa un trabajador, corre el modelo ahí y sincroniza al encontrar señal (`cola_sync`) |
 | 3 | Internet | Solo respaldo e historial. **Nunca es requisito** |
 
 **Consecuencia:** nada en tiempo de ejecución puede depender de internet. Librerías, fuentes y mapas empaquetados localmente. Base de datos: **SQLite**.
@@ -127,7 +127,7 @@ SabanaHack/
 | `sim/clima.py` | `T`, `HR`, eventos húmedos, ventilación, horas de mojado por cama y hora | config `clima`, rng, estado de ventilación | arreglos `(horas, camas)` en memoria |
 | `sim/enfermedad.py` | Estados por planta, infección, latencia, pérdida, `tratar()`, focos iniciales | clima, vecindad, ventilación, rng | estado por planta, eventos de verdad |
 | `sim/sensores.py` | Sensor central por bloque | clima verdadero, rng | filas `lecturas` (`sensor_fijo`) |
-| `sim/drones.py` | Patrulla, prioridad, inspección, incidencias, alertas, ventilación, tratamiento, seguimiento, batería | estado de plantas, riesgo, rng | filas `lecturas`, `drones`, `incidencias`, `seguimientos`, `alertas`, `ventilacion` |
+| `sim/robots.py` | Patrulla, prioridad, inspección, incidencias, alertas, ventilación, tratamiento, seguimiento, batería | estado de plantas, riesgo, rng | filas `lecturas`, `robots`, `incidencias`, `seguimientos`, `alertas`, `ventilacion` |
 | `sim/escritor.py` | Crear la base desde `contrato/schema.sql`, WAL, inserciones por lote | conexión, filas | `data/finca.db` |
 | `sim/run_temporada.py` | CLI de temporada completa | `--escenario --semilla --dias` | `finca.db`, `verdad_<corrida>.parquet` |
 | `sim/run_vivo.py` | CLI de demo hora a hora | `--config --velocidad` | escrituras incrementales en `finca.db` |
@@ -148,7 +148,7 @@ Todos los paquetes llevan `__init__.py` y se ejecutan como módulos (`python -m 
 config/default.yaml ──► sim/geometria ──► sim/clima ──► sim/enfermedad ──┐
                                              │               │            │
                                              ▼               ▼            ▼
-                                     sim/sensores      sim/drones    verdad (memoria)
+                                     sim/sensores      sim/robots    verdad (memoria)
                                              │               │            │
                                              └──► lecturas ◄─┘            ▼
                                                       │          data/verdad_<corrida>.parquet
@@ -160,7 +160,7 @@ config/default.yaml ──► sim/geometria ──► sim/clima ──► sim/en
            prediccion/reglas        prediccion/ia ◄── entrenar ◄── etiquetas ◄┘
                     └───────────┬───────────┘
                                 ▼
-                        tabla riesgo + alertas riesgo_7d ──► sim/drones (prioridad)
+                        tabla riesgo + alertas riesgo_7d ──► sim/robots (prioridad)
                                 ▼
                          data/finca.db ──► hub/ + dashboard/ (Samuel, solo lectura)
                                 ▲
@@ -175,7 +175,7 @@ Romper cualquiera de estos es una regresión. Si una tarea lo exige, **pregunta 
 
 1. **Sin internet en tiempo de ejecución.** Ninguna importación ni llamada de red.
 2. **Propiedad de carpetas.** Nunca escribas en `hub/` ni `dashboard/`.
-3. **Quién escribe qué en la base** (`NOTAS.md`). El simulador escribe `corridas`, `camas`, `lecturas`, `riesgo`, `incidencias`, `seguimientos`, `drones`, `ventilacion`, `cola_sync` (con `hora_recibida = NULL`) y crea todas las `alertas`. El hub/dashboard solo escribe `alertas.estado`, `alertas.accion` y `cola_sync.hora_recibida`. **Ninguna acción del dashboard vuelve al simulador**: `run_vivo` no lee nada de la base.
+3. **Quién escribe qué en la base** (`NOTAS.md`). El simulador escribe `corridas`, `camas`, `lecturas`, `riesgo`, `incidencias`, `seguimientos`, `robots`, `ventilacion`, `cola_sync` (con `hora_recibida = NULL`) y crea todas las `alertas`. El hub/dashboard solo escribe `alertas.estado`, `alertas.accion` y `cola_sync.hora_recibida`. **Ninguna acción del dashboard vuelve al simulador**: `run_vivo` no lee nada de la base.
 4. **El contrato (`contrato/schema.sql`) no cambia sin acuerdo de los dos.** Ni columnas, ni nombres, ni valores permitidos.
 5. **La verdad no va a la base ni al dashboard.** El estado real de cada planta se guarda en `data/verdad_<corrida>.parquet` y solo lo usan `prediccion/etiquetas.py`, `prediccion/entrenar.py` y `analisis/`. Excepción del contrato: `incidencias.verdad_infectada` (solo validación; el dashboard no lo muestra).
 6. **`prediccion/variables.py` nunca lee la verdad.** Solo lecturas medidas, incidencias **confirmadas**, ventilación y geometría.
@@ -183,12 +183,12 @@ Romper cualquiera de estos es una regresión. Si una tarea lo exige, **pregunta 
 8. **Una sola fuente aleatoria por corrida:** `rng = numpy.random.default_rng(semilla)`, creado una vez y pasado como argumento. Nunca `random`, nunca `np.random.<función>` global.
 9. **Números aleatorios comunes:** todos los escenarios de una comparación usan la misma semilla.
 10. **Cero números mágicos.** Todo parámetro vive en `config/default.yaml` con comentario `# fuente: biología (Sara B.)`, `# fuente: supuesto` o `# fuente: ficha técnica`.
-11. **Tiempo:** `hora` = horas simuladas desde el inicio (entero); `dia = hora // 24`. Excepción: `drones.hora` es `REAL` (el dron cambia de cama cada pocos minutos).
+11. **Tiempo:** `hora` = horas simuladas desde el inicio (entero); `dia = hora // 24`. Excepción: `robots.hora` es `REAL` (el robot cambia de cama cada pocos minutos).
 12. **El riesgo se calcula una vez al día a las 06:00** (`hora % 24 == 6`), una fila por cama por día en `riesgo`.
 13. **Niveles:** `alto` si `prob_ia_7d ≥ umbral_alto` (0.6), `medio` si `≥ umbral_medio` (0.3), si no `bajo`. Umbrales leídos de `config`, nunca escritos en el código.
 14. **Ubicación:** siempre `Bloque · Nave · Cama`, nunca x/y en la interfaz. Camas numeradas **continuas dentro del bloque** (nave 1 = 1–12, nave 2 = 13–24, …, nave 6 = 61–72). `cama_id = f"B{bloque}-N{nave}-C{cama:02d}"`, ej. `B1-N2-C14`.
 15. **`es_borde` vs `es_borde_planta`:** `es_borde` es por cama (primera o última cama de la nave), va a `camas` y es variable del modelo. `es_borde_planta` es por planta (cama de borde **o** posiciones 1–5 y 36–40), es interno de `sim/` y nunca va a la base.
-16. **`lecturas` contiene mediciones, no la verdad:** siempre con ruido de medición y con `fuente` (`sensor_fijo` | `dron:B{n}`).
+16. **`lecturas` contiene mediciones, no la verdad:** siempre con ruido de medición y con `fuente` (`sensor_fijo` | `robot:B{n}`).
 17. **Archivos de texto siempre con `encoding="utf-8"`**; rutas siempre con `pathlib.Path`.
 
 ---
@@ -203,9 +203,9 @@ Resumen (puede quedarse atrás del archivo):
 
 ```sql
 CREATE TABLE corridas (
-  corrida_id TEXT PRIMARY KEY,      -- 'demo', 'temporada-7', 'exp-drones-12'
+  corrida_id TEXT PRIMARY KEY,      -- 'demo', 'temporada-7', 'exp-robots-12'
   modo TEXT NOT NULL,               -- 'vivo' | 'temporada' | 'experimento'
-  escenario TEXT NOT NULL,          -- 'actual' | 'sensor_central' | 'drones' | 'drones_celular' | 'drones_sin_vent' | 'demo'
+  escenario TEXT NOT NULL,          -- 'actual' | 'sensor_central' | 'robots' | 'robots_celular' | 'robots_sin_vent' | 'demo'
   semilla INTEGER NOT NULL,
   config_json TEXT NOT NULL,
   inicio_sim TEXT NOT NULL          -- ISO 8601
@@ -221,7 +221,7 @@ CREATE TABLE camas (                -- geometría, una fila por cama
 CREATE TABLE lecturas (             -- temperatura y humedad medidas (no la verdad del simulador)
   corrida_id TEXT, hora INTEGER,    -- hora simulada desde el inicio
   cama_id TEXT, temp_c REAL, hr REAL,
-  fuente TEXT                       -- 'sensor_fijo' | 'dron:B1'
+  fuente TEXT                       -- 'sensor_fijo' | 'robot:B1'
 );
 
 CREATE TABLE riesgo (               -- salida del modelo, una fila por cama por día (06:00)
@@ -242,10 +242,10 @@ CREATE TABLE incidencias (
   verdad_infectada INTEGER          -- solo para validación; el dashboard NO lo muestra
 );
 
-CREATE TABLE seguimientos (         -- registrado automáticamente por el dron
+CREATE TABLE seguimientos (         -- registrado automáticamente por el robot
   seguimiento_id INTEGER PRIMARY KEY,
   incidencia_id INTEGER, corrida_id TEXT, hora INTEGER,
-  dron_id TEXT, resultado TEXT,     -- 'empeora' | 'igual' | 'mejora' | 'limpia'
+  robot_id TEXT, resultado TEXT,     -- 'empeora' | 'igual' | 'mejora' | 'limpia'
   plantas_afectadas INTEGER, nota TEXT
 );
 
@@ -259,8 +259,8 @@ CREATE TABLE alertas (
   accion TEXT                       -- lo que eligió el agrónomo en el dashboard
 );
 
-CREATE TABLE drones (               -- posición y estado, una fila por cambio
-  corrida_id TEXT, hora REAL, dron_id TEXT, cama_id TEXT,
+CREATE TABLE robots (               -- posición y estado, una fila por cambio
+  corrida_id TEXT, hora REAL, robot_id TEXT, cama_id TEXT,
   estado TEXT,                      -- 'patrulla' | 'prioridad' | 'inspeccionando' | 'carga'
   bateria REAL
 );
@@ -273,7 +273,7 @@ CREATE TABLE ventilacion (
 
 CREATE TABLE cola_sync (            -- nivel 2: datos esperando llegar al modelo/hub
   id INTEGER PRIMARY KEY,
-  corrida_id TEXT, origen TEXT,     -- 'dron:B1' | 'celular'
+  corrida_id TEXT, origen TEXT,     -- 'robot:B1' | 'celular'
   hora_generada INTEGER, hora_recibida INTEGER, tipo TEXT, payload TEXT
 );
 ```
@@ -313,9 +313,9 @@ Transiciones válidas (cualquier otra es un error y debe lanzar `ValueError`):
 
 Severidades leídas de `config/default.yaml → alertas.severidad`, nunca escritas en el código. Los textos de las alertas se arman en **una función** por tipo, con la ubicación en formato `B{b} · Nave {n} · Cama {c}`.
 
-**`cola_sync` (`NOTAS.md`, decisión 7):** en `drones_celular` y en `run_vivo`, cada lectura, inspección y seguimiento del dron se escribe en su tabla normal **y** en `cola_sync` (`origen='dron:B{n}'`, `hora_recibida=NULL`). En el escenario `drones_celular` (lote), el simulador marca `hora_recibida` en la pasada diaria del celular (`celular.ventana_hora`) y el modelo solo usa lo recibido. En `run_vivo`, `hora_recibida` lo llena el hub de Samuel.
+**`cola_sync` (`NOTAS.md`, decisión 7):** en `robots_celular` y en `run_vivo`, cada lectura, inspección y seguimiento del robot se escribe en su tabla normal **y** en `cola_sync` (`origen='robot:B{n}'`, `hora_recibida=NULL`). En el escenario `robots_celular` (lote), el simulador marca `hora_recibida` en la pasada diaria del celular (`celular.ventana_hora`) y el modelo solo usa lo recibido. En `run_vivo`, `hora_recibida` lo llena el hub de Samuel.
 
-**Bases de datos (`NOTAS.md`, decisión 10):** `data/finca.db` solo tiene la corrida `demo` y una temporada `drones`. Las corridas de `analisis/validar.py` van a `data/experimentos/<corrida_id>.db`.
+**Bases de datos (`NOTAS.md`, decisión 10):** `data/finca.db` solo tiene la corrida `demo` y una temporada `robots`. Las corridas de `analisis/validar.py` van a `data/experimentos/<corrida_id>.db`.
 
 ---
 
@@ -364,16 +364,16 @@ presion_aire    = solo si la ventilación de la nave está encendida
 - Escenario `sensor_central`/`actual`: un sensor por bloque en la **cama central**, mide `T` y `HR` con ruido cada hora → `lecturas` con `fuente='sensor_fijo'`.
 - Para las demás camas el sistema solo "sabe" ese valor.
 
-### 6.5 Drones (`sim/drones.py`)
-- Un dron por bloque. Estados `patrulla → prioridad → inspeccionando → carga`.
-- **Patrulla:** camas del bloque en orden 1 → 72 → 1…, `min_por_cama` (6 min) por cama → ~10 camas por hora, una vuelta ≈ 7.2 h. Resolución por debajo de la hora, por eso `drones.hora` es `REAL`.
-- En cada cama: mide `T` y `HR` con ruido → `lecturas` con `fuente='dron:B{n}'`; inspecciona cada planta: latente detectada con `sens_latente` (0.25), con síntomas con `sens_sintomas` (0.90), falso positivo con `1 − especificidad`.
+### 6.5 Robots (`sim/robots.py`)
+- Un robot por bloque. Estados `patrulla → prioridad → inspeccionando → carga`.
+- **Patrulla:** camas del bloque en orden 1 → 72 → 1…, `min_por_cama` (6 min) por cama → ~10 camas por hora, una vuelta ≈ 7.2 h. Resolución por debajo de la hora, por eso `robots.hora` es `REAL`.
+- En cada cama: mide `T` y `HR` con ruido → `lecturas` con `fuente='robot:B{n}'`; inspecciona cada planta: latente detectada con `sens_latente` (0.25), con síntomas con `sens_sintomas` (0.90), falso positivo con `1 − especificidad`.
 - **Prioridad:** cama del bloque con `nivel='alto'` sin visita en las últimas 24 h → interrumpe la patrulla; cola ordenada por `prob_ia_7d` descendente.
 - **Hallazgo:** crea incidencia `sospecha` → positiva: `confirmada` + alerta `critica`; negativa: `descartada` + alerta `info`.
-- **Ventilación:** confirmación en nave con `tiene_ventilacion=1` → apagar 48 h → fila en `ventilacion` + alerta `ventilacion`. (No aplica en `drones_sin_vent`.)
+- **Ventilación:** confirmación en nave con `tiene_ventilacion=1` → apagar 48 h → fila en `ventilacion` + alerta `ventilacion`. (No aplica en `robots_sin_vent`.)
 - **Tratamiento:** `horas_hasta_tratamiento` (6 h) después → `en_tratamiento` y se llama `tratar()`.
 - **Seguimiento automático:** revisita cada `dias_revisita` (3) → fila en `seguimientos` (`empeora`/`igual`/`mejora`/`limpia`). Dos `limpia` seguidas → `cerrada`. `empeora` → `confirmada` y se trata de nuevo.
-- Cada cambio de cama → fila en `drones`.
+- Cada cambio de cama → fila en `robots`.
 - **Batería:** baja por hora de trabajo; al llegar a `bateria_min` va a `carga` durante `horas_carga`.
 
 ### 6.6 Variables del modelo (`prediccion/variables.py`) · cada cama, cada día a las 06:00
@@ -415,7 +415,7 @@ riesgo_reglas = min(1, Y · (1 + bonus_confirmadas si hay confirmadas cerca))
 
 ### 7.1 `config/default.yaml` (fuente de verdad)
 
-Léelo directamente; **no lo copies a ningún otro documento**. Secciones: `geometria`, `clima`, `mojado`, `enfermedad` (con `nair_allen.baya` / `nair_allen.flor`), `sensores`, `drones`, `riesgo` (con `broome_*`), `entrenamiento`, `actual`, `celular`, `analisis`, `alertas` (Santiago) y `dashboard` (Samuel, no tocar).
+Léelo directamente; **no lo copies a ningún otro documento**. Secciones: `geometria`, `clima`, `mojado`, `enfermedad` (con `nair_allen.baya` / `nair_allen.flor`), `sensores`, `robots`, `riesgo` (con `broome_*`), `entrenamiento`, `actual`, `celular`, `analisis`, `alertas` (Santiago) y `dashboard` (Samuel, no tocar).
 
 ### 7.2 Origen de los parámetros
 
@@ -438,8 +438,8 @@ Fuente: `Scientificic information.pdf` (raíz del repo). Siguen siendo supuestos
 ## 8. Convenciones de código
 
 - Python 3.13, todo ejecutable como módulo: `python -m paquete.modulo`.
-- **Funciones pequeñas con docstring de una línea.** Sin abstracciones de más: es un hackathon. Funciones puras que reciben arreglos y devuelven arreglos; las clases solo si hay estado real que mantener (el dron es el candidato natural).
-- **Vectorizado:** en el paso horario nada de bucles por planta. Los bucles por hora y por dron sí están permitidos.
+- **Funciones pequeñas con docstring de una línea.** Sin abstracciones de más: es un hackathon. Funciones puras que reciben arreglos y devuelven arreglos; las clases solo si hay estado real que mantener (el robot es el candidato natural).
+- **Vectorizado:** en el paso horario nada de bucles por planta. Los bucles por hora y por robot sí están permitidos.
 - **Aleatoriedad:** `rng` como parámetro explícito de toda función que sortee algo.
 - **Nombres:** español o inglés, pero consistente **dentro de cada módulo**. Los nombres del dominio van como en el contrato (`cama_id`, `nave`, `incidencia`, `seguimiento`).
 - **Archivos:** `open(ruta, encoding="utf-8")`, `pathlib.Path` para rutas, raíz del repo resuelta desde `Path(__file__)`.
@@ -475,7 +475,7 @@ Escribe pruebas cortas para lo que toques. Mínimo por módulo:
 | `clima` | Misma semilla → mismos arreglos; `HR` siempre en [30, 100]; ventilación encendida baja la HR |
 | `enfermedad` | Reproducibilidad; solo transiciones de estado válidas; sin focos ni β_0 → nadie se infecta; tratada no contagia |
 | `sensores` | Una lectura por bloque por hora, `fuente='sensor_fijo'` |
-| `drones` | Prioridad interrumpe la patrulla; positiva → `confirmada` + alerta `critica`; ventilación apagada solo si `tiene_ventilacion=1`; 2 `limpia` → `cerrada` |
+| `robots` | Prioridad interrumpe la patrulla; positiva → `confirmada` + alerta `critica`; ventilación apagada solo si `tiene_ventilacion=1`; 2 `limpia` → `cerrada` |
 | `escritor` | Las tablas creadas coinciden con `contrato/schema.sql`; WAL activo |
 | `variables` | **No lee la verdad** (construir variables sin pasar la verdad debe funcionar); `distancia_a_confirmada_en_nave = 99` si no hay |
 | `etiquetas` | Infección a las 167 h → 1; a las 169 h → 0 |
@@ -543,23 +543,23 @@ Fecha límite: **sábado 24 de octubre, 11:30 código congelado.**
 
 ### Fase 3 · Modelo predictivo (01:30–03:30)
 - `variables.py`, `etiquetas.py`, `reglas.py`, `ia.py`, `entrenar.py` (sección 6.6–6.9) y escritura diaria en `riesgo` + alertas `riesgo_7d`.
-- **[decisión pendiente] Huevo y gallina:** para generar las temporadas de entrenamiento todavía no existe el modelo, y en el escenario `drones` la prioridad depende de `prob_ia_7d`. Opción recomendada: si no hay modelo, `nivel` se calcula con `riesgo_reglas` y `prob_ia_7d` queda `NULL`; se entrena; luego se re-simulan las semillas de prueba ya con IA. Confirmar con Santiago antes de implementarlo.
+- **[decisión pendiente] Huevo y gallina:** para generar las temporadas de entrenamiento todavía no existe el modelo, y en el escenario `robots` la prioridad depende de `prob_ia_7d`. Opción recomendada: si no hay modelo, `nivel` se calcula con `riesgo_reglas` y `prob_ia_7d` queda `NULL`; se entrena; luego se re-simulan las semillas de prueba ya con IA. Confirmar con Santiago antes de implementarlo.
 - **Listo cuando:** `python -m prediccion.entrenar` imprime AUC y PR-AUC de reglas vs. IA en las semillas de prueba.
 
 ### Descanso (03:30–06:30)
 
-### Fase 4 · Drones de cable y seguimiento (06:30–08:00)
-- `sim/drones.py` completo (sección 6.5).
-- **Listo cuando:** en una temporada `drones` hay incidencias en todos los estados y seguimientos registrados solos.
+### Fase 4 · Robots de riel y seguimiento (06:30–08:00)
+- `sim/robots.py` completo (sección 6.5).
+- **Listo cuando:** en una temporada `robots` hay incidencias en todos los estados y seguimientos registrados solos.
 
 ### Fase 5 · Escenarios y validación (08:00–10:30)
 | Escenario | Qué tiene |
 |---|---|
 | `actual` | Sensor central + revisión manual (`p_humano` por pasada, una pasada por cama cada `dias_ronda`). Sin predicción |
-| `sensor_central` | Sensor central + modelo + dron que solo va cuando hay alerta |
-| `drones` | Drones patrullando y midiendo + modelo + prioridad + seguimiento. **La solución** |
-| `drones_celular` | Igual que `drones`, sin red: datos llegan al modelo una vez al día (hora aleatoria 7–15 h) vía `cola_sync` |
-| `drones_sin_vent` | `drones` sin apagar la ventilación |
+| `sensor_central` | Sensor central + modelo + robot que solo va cuando hay alerta |
+| `robots` | Robots patrullando y midiendo + modelo + prioridad + seguimiento. **La solución** |
+| `robots_celular` | Igual que `robots`, sin red: datos llegan al modelo una vez al día (hora aleatoria 7–15 h) vía `cola_sync` |
+| `robots_sin_vent` | `robots` sin apagar la ventilación |
 
 Métricas (`analisis/metricas.py`):
 - **Días de anticipación** por foco: día de primeros síntomas − día de la primera alerta `alto` o confirmación en esa cama (positivo = avisamos antes).
@@ -568,31 +568,31 @@ Métricas (`analisis/metricas.py`):
 - **Falsas alarmas:** alertas `alto` sin infección en 7 días; incidencias `descartada`.
 - **Focos no detectados:** camas con ≥ 5 plantas con síntomas nunca confirmadas a tiempo.
 - **Modelo:** AUC, PR-AUC, aciertos en el top-10 diario; reglas vs. IA vs. IA solo con sensor central.
-- **Costo del peor caso:** días de anticipación perdidos en `drones_celular` frente a `drones`.
+- **Costo del peor caso:** días de anticipación perdidos en `robots_celular` frente a `robots`.
 
 Corridas: `python -m analisis.validar --semillas 30` → `data/resultados/metricas.parquet`, media + IC 95 % bootstrap + diferencias pareadas por semilla.
 
-Gráficas (`analisis/graficas.py`, PNG 1920×1080, fondo oscuro): (1) anticipación por escenario (cajas); (2) plantas afectadas en el tiempo `actual` vs. `drones` (media ± IC); (3) ROC/PR reglas vs. IA vs. IA solo sensor central; (4) importancia de variables; (5) tabla de aciertos, falsas alarmas, no detectados; (6) anticipación red local vs. celular.
+Gráficas (`analisis/graficas.py`, PNG 1920×1080, fondo oscuro): (1) anticipación por escenario (cajas); (2) plantas afectadas en el tiempo `actual` vs. `robots` (media ± IC); (3) ROC/PR reglas vs. IA vs. IA solo sensor central; (4) importancia de variables; (5) tabla de aciertos, falsas alarmas, no detectados; (6) anticipación red local vs. celular.
 
-Casos donde falla (mostrarlos): periodos secos con contagio por aire; latentes que la cámara no ve; muchos focos con un solo dron por bloque.
+Casos donde falla (mostrarlos): periodos secos con contagio por aire; latentes que la cámara no ve; muchos focos con un solo robot por bloque.
 
 ### Fase 6 · Demo y cierre (10:30–12:00)
 - `config/demo.yaml`: Bloque 1, foco latente en Nave 2 · Cama 14 el día 1; evento húmedo la noche del día 2; ventilación encendida en Nave 2.
-- Secuencia en ~3 min: alerta `riesgo_7d` → dron de patrulla a prioridad → inspecciona → `confirmada` → ventilación apagada (automática + alerta) → seguimiento 3 días después → `mejora` → paso *Sin red* (`run_vivo` escribe `cola_sync`).
+- Secuencia en ~3 min: alerta `riesgo_7d` → robot de patrulla a prioridad → inspecciona → `confirmada` → ventilación apagada (automática + alerta) → seguimiento 3 días después → `mejora` → paso *Sin red* (`run_vivo` escribe `cola_sync`).
 - **Entregar a las 09:30** (no al final de la fase). Comando para Samuel: `python -m sim.run_vivo --config config/demo.yaml --velocidad 1` (1 hora simulada por segundo).
 
 ### Entrega a Samuel
-- [ ] `data/finca.db` de una temporada `drones` con todas las tablas llenas.
+- [ ] `data/finca.db` de una temporada `robots` con todas las tablas llenas.
 - [ ] `run_vivo` escribe hora a hora sin bloquear la lectura (WAL).
 - [ ] Escenario `demo` con la secuencia completa en < 3 min.
 - [ ] Gráficas en `data/resultados/`.
 
 **Acuerdos con Samuel: `NOTAS.md` (fuente de verdad).** Lo que afecta al simulador:
 - Ventilación **automática en todos los modos**, siempre con alerta `ventilacion`. `run_vivo` no lee la base.
-- `cola_sync` escrita por el simulador en `drones_celular` y `run_vivo` (sección 5.3).
+- `cola_sync` escrita por el simulador en `robots_celular` y `run_vivo` (sección 5.3).
 - Severidades en `config/default.yaml → alertas.severidad`.
 - Corridas de validación en `data/experimentos/`, no en `finca.db`.
-- Entregas: **23:30** `finca.db` con `camas` · **03:30** `finca.db` parcial sin drones · **08:00** temporada `drones` completa · **09:30** `run_vivo` + `demo.yaml` · **10:30** gráficas.
+- Entregas: **23:30** `finca.db` con `camas` · **03:30** `finca.db` parcial sin robots · **08:00** temporada `robots` completa · **09:30** `run_vivo` + `demo.yaml` · **10:30** gráficas.
 - La demo termina con el paso *Sin red*: `demo.yaml` hace que `run_vivo` escriba `cola_sync`.
 
 **Otros huecos:** las banderas `run_temporada --dias` y `run_vivo --velocidad` aparecen en el plan pero no en la lista de comandos de `CLAUDE.md`: son obligatorias.
@@ -603,20 +603,20 @@ Casos donde falla (mostrarlos): periodos secos con contagio por aire; latentes q
 
 **Si vamos tarde, cortar en este orden:**
 1. Una sola enfermedad (Botrytis).
-2. Batería de los drones.
-3. Escenario `drones_sin_vent`.
+2. Batería de los robots.
+3. Escenario `robots_sin_vent`.
 4. Bajar a 15 semillas.
 
-**Nunca cortar:** predicción a 7 días con IA comparada contra reglas; drones con patrulla y prioridad; seguimiento automático; escenario `drones_celular`; gráfica de anticipación con sus errores.
+**Nunca cortar:** predicción a 7 días con IA comparada contra reglas; robots con patrulla y prioridad; seguimiento automático; escenario `robots_celular`; gráfica de anticipación con sus errores.
 
-**Criterios del jurado:** integración tecnológica 30 %, relevancia/impacto/ética 20 %, viabilidad y escalabilidad 20 %, innovación 10 %, uso y justificación de IA 10 %, negocio y pitch 10 %. Prioridad absoluta: **que la demo funcione de punta a punta** (predicción → dron → incidencia → seguimiento → modo sin internet).
+**Criterios del jurado:** integración tecnológica 30 %, relevancia/impacto/ética 20 %, viabilidad y escalabilidad 20 %, innovación 10 %, uso y justificación de IA 10 %, negocio y pitch 10 %. Prioridad absoluta: **que la demo funcione de punta a punta** (predicción → robot → incidencia → seguimiento → modo sin internet).
 
 ---
 
 ## 15. Guardarraíles anti-regresión
 
 - **No** cambies el contrato por tu cuenta, ni siquiera para "mejorarlo".
-- **No** crees jerarquías de clases, fábricas, registros de plugins ni capas de servicio. Funciones y, como mucho, una clase `Dron`.
+- **No** crees jerarquías de clases, fábricas, registros de plugins ni capas de servicio. Funciones y, como mucho, una clase `Robot`.
 - **No** agregues frameworks, ORMs ni dependencias.
 - **No** optimices antes de que todo corra de punta a punta.
 - **No** toques β sin volver a verificar el 5–15 % de afectadas en `sensor_central`.
@@ -638,7 +638,7 @@ python -m venv .venv
 pip install -r requirements.txt
 
 # Simulación y modelo
-python -m sim.run_temporada --escenario drones --semilla 7          # temporada completa → data\finca.db
+python -m sim.run_temporada --escenario robots --semilla 7          # temporada completa → data\finca.db
 python -m sim.run_temporada --dias 1                                # prueba rápida (Fase 1)
 python -m sim.run_vivo --config config/demo.yaml --velocidad 1      # demo en vivo, 1 h simulada por segundo
 python -m prediccion.entrenar                                       # entrena y compara reglas vs. IA

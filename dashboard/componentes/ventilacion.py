@@ -11,7 +11,7 @@ def pantalla(ctx: Ctx) -> None:
     """Ventilación por nave en cada bloque."""
     v = db.ventilacion_actual(ctx.corrida)
     hist = db.ventilacion_historial(ctx.corrida)
-    horas = ctx.cfg["drones"]["horas_ventilacion_apagada"]
+    horas = ctx.cfg["robots"]["horas_ventilacion_apagada"]
     naves = sorted(set(int(n) for n in v["nave"]))
     bloques = ""
     for b in sorted(set(int(x) for x in v["bloque"])):

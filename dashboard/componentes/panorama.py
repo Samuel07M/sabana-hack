@@ -1,10 +1,10 @@
-"""Pantalla Panorama: KPIs, mapa 3D del bloque, dron, camas a vigilar y los 4 bloques (sin recuadros)."""
+"""Pantalla Panorama: KPIs, mapa 3D del bloque, robot, camas a vigilar y los 4 bloques (sin recuadros)."""
 import streamlit as st
 
 from dashboard.componentes.estado import Ctx, abrir_cama
 from dashboard.componentes.graficas import sparkline
 from dashboard.componentes.mapa3d import mapa3d
-from dashboard.componentes.ui import (ABIERTA, C_DRON, LABEL, V_DRON, chip, clicable, color_riesgo, esc,
+from dashboard.componentes.ui import (ABIERTA, C_ROBOT, LABEL, V_ROBOT, chip, clicable, color_riesgo, esc,
                                       f1, html, ic, ico_box, pct, plural)
 from hub import db
 from hub import tiempo as T
@@ -37,7 +37,7 @@ def kpis(ctx: Ctx) -> None:
 
 
 def _datos_mapa(ctx: Ctx, b: int, riesgo, dia) -> dict:
-    """Datos del bloque para el componente mapa3d (riesgo, humedad, tooltip, dron, incidencias y ventilación)."""
+    """Datos del bloque para el componente mapa3d (riesgo, humedad, tooltip, robot, incidencias y ventilación)."""
     cfg = ctx.cfg
     g = cfg["geometria"]
     clima = {r.cama_id: r for r in db.clima_bloque(ctx.corrida, b).itertuples()}
@@ -54,19 +54,19 @@ def _datos_mapa(ctx: Ctx, b: int, riesgo, dia) -> dict:
             "color": color_riesgo(r.prob_ia_7d) if r is not None else "",
             "mojado": f"{int(v.wet72)} h" if v is not None else "—",
             "clima": f"{cl.temp_c:g} °C · {cl.hr:g} %" if cl is not None else "—",
-            "medicion": (("Sensor del bloque" if cl.fuente == "sensor_fijo" else "Dron") + " · " + T.hace(cl.hora, ctx.ahora))
+            "medicion": (("Sensor del bloque" if cl.fuente == "sensor_fijo" else "Robot") + " · " + T.hace(cl.hora, ctx.ahora))
             if cl is not None else "—",
         }
     vent = {int(r.nave): r.estado for r in db.ventilacion_actual(ctx.corrida).itertuples() if r.bloque == b}
-    dr = db.drones_actual(ctx.corrida)
-    dr = dr[dr["dron_id"] == f"B{b}"]
+    dr = db.robots_actual(ctx.corrida)
+    dr = dr[dr["robot_id"] == f"B{b}"]
     hc = cfg["riesgo"]["hora_calculo"]
     return {
         "tema": st.session_state.tema, "bloque": b, "naves": g["naves_por_bloque"], "camas_por_nave": g["camas_por_nave"],
         "mapa": cfg["dashboard"]["mapa"], "camas": camas, "tips": tips,
         "incidencias": sorted(set(db.incidencias(ctx.corrida, bloque=b, grupo="abiertas")["cama_id"])),
         "vent": vent, "sel": st.session_state.cama,
-        "dron": None if dr.empty else {"dron_id": dr.iloc[0]["dron_id"], "cama_id": dr.iloc[0]["cama_id"],
+        "robot": None if dr.empty else {"robot_id": dr.iloc[0]["robot_id"], "cama_id": dr.iloc[0]["cama_id"],
                                        "estado": dr.iloc[0]["estado"]},
         "titulo": f"Bloque {b}",
         "sub": "Esperando el primer cálculo de riesgo (06:00)" if dia is None else
@@ -101,21 +101,21 @@ def _bloques(ctx: Ctx, riesgo) -> None:
                 st.rerun()
 
 
-def _tarjeta_dron(ctx: Ctx, b: int) -> None:
-    """Estado, ubicación, T, HR, batería y cola de prioridad del dron del bloque."""
-    dr = db.drones_actual(ctx.corrida)
-    dr = dr[dr["dron_id"] == f"B{b}"]
+def _tarjeta_robot(ctx: Ctx, b: int) -> None:
+    """Estado, ubicación, T, HR, batería y cola de prioridad del robot del bloque."""
+    dr = db.robots_actual(ctx.corrida)
+    dr = dr[dr["robot_id"] == f"B{b}"]
     if dr.empty:
-        html('<div class="pano"><div class="h3">Dron</div><div class="small muted">Sin datos del dron.</div></div>')
+        html('<div class="pano"><div class="h3">Robot</div><div class="small muted">Sin datos del robot.</div></div>')
         return
     d = dr.iloc[0]
     pulso = "pulse" if d["estado"] == "inspeccionando" else ""
-    html(f'<div class="card-hd" style="margin-bottom:16px;flex-wrap:nowrap">{ico_box("drone", V_DRON[d["estado"]], False, 20)}<div>'
-         f'<div class="h3">Dron {esc(d["dron_id"])}</div><div class="sub">'
+    html(f'<div class="card-hd" style="margin-bottom:16px;flex-wrap:nowrap">{ico_box("robot", V_ROBOT[d["estado"]], False, 20)}<div>'
+         f'<div class="h3">Robot {esc(d["robot_id"])}</div><div class="sub">'
          f'{"Última posición conocida" if ctx.sin_red else "Cámara 360 · sensores de clima"}</div></div>'
-         f'<div class="spacer"></div>{chip(LABEL["dron"][d["estado"]], C_DRON[d["estado"]], True, pulso)}</div>')
+         f'<div class="spacer"></div>{chip(LABEL["robot"][d["estado"]], C_ROBOT[d["estado"]], True, pulso)}</div>')
     extra = " · " + T.hace(d["hora"], ctx.ahora) if ctx.sin_red else ""
-    if clicable("dpos", f'<div class="dron-pos"><div class="tiny muted">Ubicación</div><div class="v">'
+    if clicable("dpos", f'<div class="robot-pos"><div class="tiny muted">Ubicación</div><div class="v">'
                 f'{esc(U.sin_bloque(d["cama_id"]))}</div><div class="tiny faint">{T.etiqueta(d["hora"], ctx.ini)}{extra}</div></div>'):
         abrir_cama(d["cama_id"])
         st.rerun()
@@ -129,7 +129,7 @@ def _tarjeta_dron(ctx: Ctx, b: int) -> None:
          f'</div></div><div class="row between" style="margin:14px 0 6px"><span class="small muted" '
          f'style="display:flex;gap:6px;align-items:center">{ic("battery", 14)}Batería</span><b class="num">{bat} %</b></div>'
          f'<div class="bar" style="--c:{bc}"><i style="width:{bat}%"></i></div><div class="sec">Cola de prioridad</div></div>')
-    pri = db.prioridades_dron(ctx.corrida, d["dron_id"])
+    pri = db.prioridades_robot(ctx.corrida, d["robot_id"])
     if pri.empty:
         html('<span class="small muted">Patrulla rutinaria por todas las camas del bloque.</span>')
         return
@@ -177,5 +177,5 @@ def pantalla(ctx: Ctx) -> None:
             _bloques(ctx, riesgo)
         with der:
             with st.container(key="pano_side"):
-                _tarjeta_dron(ctx, b)
+                _tarjeta_robot(ctx, b)
                 _camas_a_vigilar(ctx, b, riesgo)

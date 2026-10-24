@@ -72,7 +72,7 @@ enfermedad:                             # Botrytis cinerea (moho gris)
 sensores:
   ruido_T_sd: 0.2                       # fuente: supuesto
   ruido_HR_sd: 1.0                      # fuente: supuesto
-drones:
+robots:
   por_bloque: 1                         # fuente: supuesto
   min_por_cama: 6                       # fuente: supuesto
   sens_latente: 0.25                    # fuente: supuesto
@@ -146,8 +146,8 @@ dashboard:
     horas_por_segundo: 1                # fuente: supuesto · ritmo de --vivo
     corridas:                           # fuente: supuesto · las tres corridas del prototipo
       - {corrida_id: demo, modo: vivo, escenario: demo, semilla: 7, guion: true}
-      - {corrida_id: temporada-7, modo: temporada, escenario: drones, semilla: 7, guion: false}
-      - {corrida_id: celular-12, modo: temporada, escenario: drones_celular, semilla: 12, guion: false}
+      - {corrida_id: temporada-7, modo: temporada, escenario: robots, semilla: 7, guion: false}
+      - {corrida_id: celular-12, modo: temporada, escenario: robots_celular, semilla: 12, guion: false}
     sensor_fijo: {nave: 3, cama_en_nave: 6}   # fuente: supuesto · un sensor fijo por bloque
     enfermedad:                         # contagio simplificado del prototipo (los beta de arriba son de otro núcleo)
       T_opt: 18.0                       # fuente: supuesto
@@ -159,13 +159,13 @@ dashboard:
       beta_0: 5.0e-7                    # fuente: supuesto · fondo
       peso_foco_borde: 0.6              # fuente: supuesto · P[foco aleatorio en cama de borde]
       dias_ventana_foco: 10             # fuente: supuesto · focos aleatorios en los primeros días
-    drones:
+    robots:
       factor_inspeccion_prioridad: 2    # fuente: supuesto · la visita prioritaria mira más de cerca
       factor_fp_patrulla: 0.02          # fuente: supuesto · falsas sospechas en patrulla
       prob_confirmar: 0.9               # fuente: supuesto
       confianza_confirmada: [0.75, 0.95]   # fuente: supuesto
       confianza_descartada: [0.40, 0.60]   # fuente: supuesto
-      horas_validez_lectura: 8          # fuente: supuesto · una lectura del dron vale para la cama 8 h
+      horas_validez_lectura: 8          # fuente: supuesto · una lectura del robot vale para la cama 8 h
     modelo_prueba:                      # fuente: supuesto · modelo de prueba del prototipo (riesgo_reglas y prob_ia_7d)
       ventana_h: 72
       umbral_mojado_reglas_h: 20
@@ -195,7 +195,7 @@ dashboard:
     sep_camas: 8
     pasillo: 32
     altura_max: 48
-    altura_dron: 112
+    altura_robot: 112
     vista_inicial: {theta: -28, elev: 50, zoom: 1}
   ui:                                   # fuente: supuesto
     max_alertas_lista: 120

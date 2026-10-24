@@ -55,13 +55,13 @@ def _detalle(ctx: Ctx, todas) -> None:
     html(f'<div class="card-hd"><div><div class="h3">Incidencia #{int(i["incidencia_id"])}</div><div class="sub">'
          f'{esc(U.legible(i["cama_id"]))} · posición {int(i["posicion"])}</div></div><div class="spacer"></div>'
          f'{chip(LABEL["inc"][i["estado"]], C_INC[i["estado"]])}</div>'
-         + timeline_inc(i, segs, ctx.cfg["drones"]["horas_hasta_tratamiento"], ctx.ini))
+         + timeline_inc(i, segs, ctx.cfg["robots"]["horas_hasta_tratamiento"], ctx.ini))
     with st.container(horizontal=True, vertical_alignment="center", key="det_pie"):
         if st.button("Ver cama", key="det_cama"):
             ir_a("finca")
             abrir_cama(i["cama_id"])
             st.rerun()
-        html(f'<span class="small muted">El dron registra cada revisita cada {ctx.cfg["drones"]["dias_revisita"]} días.</span>',
+        html(f'<span class="small muted">El robot registra cada revisita cada {ctx.cfg["robots"]["dias_revisita"]} días.</span>',
              width="content")
 
 
@@ -71,7 +71,7 @@ def trazabilidad(ctx: Ctx) -> None:
     maxl = ctx.cfg["dashboard"]["ui"]["max_alertas_lista"]
     with st.container(key="card_traza"):
         with st.container(horizontal=True, vertical_alignment="center", key="traza_hd"):
-            html('<div><div class="h3">Trazabilidad</div><div class="sub">Revisitas del dron, cambios de ventilación y '
+            html('<div><div class="h3">Trazabilidad</div><div class="sub">Revisitas del robot, cambios de ventilación y '
                  'sospechas descartadas</div></div>', width="content")
             st.space("stretch")
             todos = A.de_trazabilidad(ctx.corrida)

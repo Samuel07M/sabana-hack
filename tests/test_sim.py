@@ -1,4 +1,4 @@
-"""Pruebas del simulador: geometría, clima, enfermedad, sensores, drones y estados."""
+"""Pruebas del simulador: geometría, clima, enfermedad, sensores, robots y estados."""
 import copy
 import sqlite3
 
@@ -17,14 +17,14 @@ def cfg_chica(**cambios) -> dict:
     cfg["geometria"].update(bloques=1, naves_por_bloque=2, camas_por_nave=4, plantas_por_cama=10)
     cfg["sim"]["dias"] = 14
     cfg["enfermedad"]["focos_forzados"] = [{"cama_id": "B1-N1-C02", "posicion": 5, "hora": 0}]
-    cfg["drones"].update(sens_latente=1.0, sens_sintomas=1.0, tasa_falsa_deteccion_planta=0.0, especificidad=1.0)
+    cfg["robots"].update(sens_latente=1.0, sens_sintomas=1.0, tasa_falsa_deteccion_planta=0.0, especificidad=1.0)
     cfg["enfermedad"]["eficacia_tratamiento"] = 1.0
     for seccion, valores_ in cambios.items():
         cfg[seccion].update(valores_)
     return cfg
 
 
-def correr(cfg, escenario="drones", semilla=1, modelo=None) -> Simulacion:
+def correr(cfg, escenario="robots", semilla=1, modelo=None) -> Simulacion:
     sim = Simulacion(cfg, escenario, semilla, "t", modelo=modelo)
     for h in range(sim.n_horas):
         sim.paso(h)
@@ -166,27 +166,27 @@ def test_sensor_central_una_lectura_por_bloque_por_hora():
 def test_volcar_escribe_todas_las_tablas(tmp_path):
     cfg = cfg_chica(sim={"dias": 6})
     con = escritor.crear_base(tmp_path / "t.db", cfg)
-    sim = Simulacion(cfg, "drones", 1, "t", modelo=None)
-    escritor.insertar_corrida(con, "t", "temporada", "drones", 1, cfg)
+    sim = Simulacion(cfg, "robots", 1, "t", modelo=None)
+    escritor.insertar_corrida(con, "t", "temporada", "robots", 1, cfg)
     for h in range(sim.n_horas):
         sim.paso(h)
     escritor.volcar(con, sim)
     filas = escritor.contar_filas(con)
-    assert filas["lecturas"] > 0 and filas["drones"] > 0 and filas["riesgo"] > 0 and filas["incidencias"] > 0
+    assert filas["lecturas"] > 0 and filas["robots"] > 0 and filas["riesgo"] > 0 and filas["incidencias"] > 0
     assert not any(sim.buf.values()) or all(len(v) == 0 for v in sim.buf.values())
     con.close()
 
 
-# ── drones e incidencias ────────────────────────────────────────────────────
+# ── robots e incidencias ────────────────────────────────────────────────────
 def test_prioridad_interrumpe_la_patrulla():
-    sim = Simulacion(cfg_chica(), "drones", 1, "t", modelo=None)
-    dron = sim.drones[0]
-    assert dron._elegir(sim) == (int(dron.ruta[0]), "patrulla")
+    sim = Simulacion(cfg_chica(), "robots", 1, "t", modelo=None)
+    robot = sim.robots[0]
+    assert robot._elegir(sim) == (int(robot.ruta[0]), "patrulla")
     sim.nivel_actual[6] = "alto"
     sim.prob_actual[6] = 0.9
-    assert dron._elegir(sim) == (6, "prioridad")
+    assert robot._elegir(sim) == (6, "prioridad")
     sim.ult_visita[6] = 0.0                                              # visitada hace menos de 24 h
-    assert dron._elegir(sim)[1] == "patrulla"
+    assert robot._elegir(sim)[1] == "patrulla"
 
 
 def test_confirmacion_genera_alerta_critica_y_apaga_la_ventilacion():
@@ -205,8 +205,8 @@ def test_sin_ventilacion_en_la_nave_no_se_apaga_nada():
     assert not sim.buf["ventilacion"] and not any(a[6] == "ventilacion" for a in sim.buf["alertas"])
 
 
-def test_drones_sin_vent_no_apaga_pero_confirma():
-    sim = correr(cfg_chica(), "drones_sin_vent")
+def test_robots_sin_vent_no_apaga_pero_confirma():
+    sim = correr(cfg_chica(), "robots_sin_vent")
     assert any(a[6] == "confirmacion" for a in sim.buf["alertas"])
     assert not sim.buf["ventilacion"]
 
@@ -223,7 +223,7 @@ def test_dos_limpias_seguidas_cierran_la_incidencia():
 
 def test_sensor_central_no_patrulla_pero_sigue_incidencias():
     sim = correr(cfg_chica(), "sensor_central")
-    assert all(f[5] == "sensor_fijo" or f[5].startswith("dron") for f in sim.buf["lecturas"])
+    assert all(f[5] == "sensor_fijo" or f[5].startswith("robot") for f in sim.buf["lecturas"])
     assert sim.flags["patrulla"] is False
 
 
@@ -231,7 +231,7 @@ def test_escenario_actual_confirma_solo_sintomas_y_sin_modelo():
     cfg = cfg_chica(actual={"p_humano": 1.0, "dias_ronda": 1}, sim={"dias": 30})
     cfg["enfermedad"]["latencia_dias"] = [2, 2]
     sim = correr(cfg, "actual")
-    assert not sim.buf["riesgo"] and not sim.buf["drones"]
+    assert not sim.buf["riesgo"] and not sim.buf["robots"]
     assert sim.inc and all(i["origen"] == "patrulla" for i in sim.inc.values())
 
 
@@ -247,7 +247,7 @@ def test_actual_cierra_tras_tratar_y_la_cama_vuelve_a_la_ronda():
 
 def test_celular_deja_hora_recibida_y_retrasa_la_confirmacion():
     cfg = cfg_chica()
-    lan, cel = correr(cfg, "drones"), correr(cfg, "drones_celular")
+    lan, cel = correr(cfg, "robots"), correr(cfg, "robots_celular")
     assert cel.buf["cola_sync"] and all(f[4] is None or f[4] >= f[3] for f in cel.buf["cola_sync"])
     hora_lan = min(a[2] for a in lan.buf["alertas"] if a[6] == "confirmacion")
     hora_cel = min(a[2] for a in cel.buf["alertas"] if a[6] == "confirmacion")
@@ -262,14 +262,14 @@ def test_misma_semilla_misma_corrida():
 
 def test_escenarios_comparten_los_sorteos_de_infeccion():
     cfg = cfg_chica()
-    a, b = Simulacion(cfg, "drones", 4, "a", modelo=None), Simulacion(cfg, "actual", 4, "b", modelo=None)
+    a, b = Simulacion(cfg, "robots", 4, "a", modelo=None), Simulacion(cfg, "actual", 4, "b", modelo=None)
     assert (a.enf.U == b.enf.U).all() and (a.T_base == b.T_base).all()
 
 
 def test_incidencias_pasan_por_todos_los_estados():
     cfg = cfg_chica(sim={"dias": 40})
-    cfg["drones"]["tasa_falsa_deteccion_planta"] = 0.01          # algunas sospechas serán falsas → descartada
-    sim = Simulacion(cfg, "drones", 1, "t", modelo=None)
+    cfg["robots"]["tasa_falsa_deteccion_planta"] = 0.01          # algunas sospechas serán falsas → descartada
+    sim = Simulacion(cfg, "robots", 1, "t", modelo=None)
     vistos = set()
     for h in range(sim.n_horas):
         sim.paso(h)
@@ -294,13 +294,13 @@ def test_escenario_invalido_en_el_motor():
 def test_incidencias_en_la_base_solo_usan_valores_del_contrato(tmp_path):
     cfg = cfg_chica(sim={"dias": 30})
     con = escritor.crear_base(tmp_path / "t.db", cfg)
-    escritor.insertar_corrida(con, "t", "temporada", "drones", 1, cfg)
+    escritor.insertar_corrida(con, "t", "temporada", "robots", 1, cfg)
     sim = correr(cfg)
     escritor.volcar(con, sim)
     estados = {r[0] for r in con.execute("SELECT DISTINCT estado FROM incidencias")}
     assert estados <= set(valores.ESTADOS_INCIDENCIA)
     assert {r[0] for r in con.execute("SELECT DISTINCT tipo FROM alertas")} <= set(valores.TIPOS_ALERTA)
     assert {r[0] for r in con.execute("SELECT DISTINCT severidad FROM alertas")} <= set(valores.SEVERIDADES)
-    assert {r[0] for r in con.execute("SELECT DISTINCT estado FROM drones")} <= set(valores.ESTADOS_DRON)
+    assert {r[0] for r in con.execute("SELECT DISTINCT estado FROM robots")} <= set(valores.ESTADOS_ROBOT)
     assert {r[0] for r in con.execute("SELECT DISTINCT resultado FROM seguimientos")} <= set(valores.RESULTADOS_SEGUIMIENTO)
     con.close()

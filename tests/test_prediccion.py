@@ -73,7 +73,7 @@ def test_semillas_de_entrenamiento_y_prueba_no_se_cruzan():
 def test_dataset_de_una_corrida_tiene_etiquetas_y_sin_semana_incompleta():
     from sim.motor import Simulacion
     cfg = cfg_chica(sim={"dias": 14})
-    sim = Simulacion(cfg, "drones", 1, "t", modelo=None, recolectar=True)
+    sim = Simulacion(cfg, "robots", 1, "t", modelo=None, recolectar=True)
     for h in range(sim.n_horas):
         sim.paso(h)
     d = entrenar.dataset_de_corrida(sim)

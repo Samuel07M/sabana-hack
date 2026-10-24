@@ -16,11 +16,11 @@ from sim.motor import FLAGS, Simulacion
 
 RESULTADOS = RAIZ / "data" / "resultados"
 EXPERIMENTOS = RAIZ / "data" / "experimentos"
-ESCENARIOS = ("actual", "sensor_central", "drones", "drones_celular", "drones_sin_vent")
+ESCENARIOS = ("actual", "sensor_central", "robots", "robots_celular", "robots_sin_vent")
 CLAVES = ("anticipacion_dias", "retraso_deteccion_dias", "afectadas_final", "afectadas_pico", "plantas_perdidas",
           "alertas_alto_falsas", "descartadas", "confirmaciones_falsas", "focos_no_detectados")
-COMPARACIONES = (("drones", "actual"), ("drones", "sensor_central"), ("drones_celular", "drones"),
-                 ("drones_sin_vent", "drones"))
+COMPARACIONES = (("robots", "actual"), ("robots", "sensor_central"), ("robots_celular", "robots"),
+                 ("robots_sin_vent", "robots"))
 
 
 def correr_una(args: tuple):
@@ -79,7 +79,7 @@ def metricas_modelo(riesgo: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     """AUC, PR-AUC y aciertos en el top-k diario: reglas vs IA (todos los datos) vs IA solo sensor central."""
     filas = []
     k = cfg["analisis"]["top_k_camas"]
-    casos = (("reglas", "drones", "reglas"), ("IA", "drones", "prob"),
+    casos = (("reglas", "robots", "reglas"), ("IA", "robots", "prob"),
              ("reglas (solo sensor central)", "sensor_central", "reglas"), ("IA solo sensor central", "sensor_central", "prob"))
     for nombre, esc, col in casos:
         d = riesgo[riesgo.escenario == esc]

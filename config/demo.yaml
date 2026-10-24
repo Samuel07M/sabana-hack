@@ -1,6 +1,6 @@
 # config/demo.yaml · escenario de la demo (se aplica ENCIMA de default.yaml; solo lo que cambia)
 # Secuencia (≈3 min a 1 h simulada por segundo): noche húmeda del día 2 con un foco latente en B1 · Nave 2 · Cama 14
-# → alerta riesgo_7d (06:00) → el dron pasa de patrulla a prioridad → inspecciona → confirmada → ventilación apagada (auto)
+# → alerta riesgo_7d (06:00) → el robot pasa de patrulla a prioridad → inspecciona → confirmada → ventilación apagada (auto)
 # → seguimiento a los 3 días (mejora) → paso "Sin red" (run_vivo escribe cola_sync; el hub muestra "Pasa el celular").
 semilla: 219                            # fuente: supuesto · elegida para que la secuencia ocurra completa, con IA o solo con reglas (ver tests/test_demo.py)
 sim: {dias: 8, inicio: "2026-11-01T00:00:00"}   # fuente: supuesto · 192 h ≈ 3 min a 1 h/s
@@ -20,6 +20,6 @@ enfermedad:
   eficacia_tratamiento: 0.6             # fuente: supuesto · para que la revisita muestre `mejora`
 riesgo:
   umbral_alto: 0.45                     # fuente: supuesto · la IA es prudente sin vecinas confirmadas; en la demo la jornada húmeda debe cruzar el umbral
-drones:
+robots:
   sens_latente: 0.5                    # fuente: supuesto · una cámara que se acerca ve un foco latente con buena probabilidad
   tasa_falsa_deteccion_planta: 0.0      # fuente: supuesto · sin falsas alarmas en la demo

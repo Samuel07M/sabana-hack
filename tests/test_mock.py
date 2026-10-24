@@ -42,11 +42,11 @@ def test_valores_permitidos(base_mock):
     assert _valores(con, "SELECT origen FROM incidencias") == {"prediccion", "patrulla"}
     assert _valores(con, "SELECT estado FROM incidencias") <= ESTADOS_INC
     assert _valores(con, "SELECT resultado FROM seguimientos") == {"empeora", "igual", "mejora", "limpia"}
-    assert _valores(con, "SELECT estado FROM drones") == {"patrulla", "prioridad", "inspeccionando", "carga"}
+    assert _valores(con, "SELECT estado FROM robots") == {"patrulla", "prioridad", "inspeccionando", "carga"}
     assert _valores(con, "SELECT estado FROM ventilacion") == {"encendida", "apagada"}
     assert _valores(con, "SELECT tipo FROM cola_sync") == {"lectura", "inspeccion", "seguimiento"}
     assert _valores(con, "SELECT hora_recibida IS NULL FROM cola_sync") == {0, 1}
-    assert _valores(con, "SELECT fuente FROM lecturas") == {"sensor_fijo", "dron:B1", "dron:B2", "dron:B3", "dron:B4"}
+    assert _valores(con, "SELECT fuente FROM lecturas") == {"sensor_fijo", "robot:B1", "robot:B2", "robot:B3", "robot:B4"}
     motivos = _valores(con, "SELECT motivo FROM ventilacion")
     assert all(m.startswith("auto: incidencia #") or m == "auto: fin de apagado" for m in motivos)
 
@@ -69,7 +69,7 @@ def test_todos_los_estados_de_incidencia(base_mock):
 def test_tres_corridas(base_mock):
     con = sqlite3.connect(base_mock["ruta"])
     assert con.execute("SELECT corrida_id, escenario FROM corridas ORDER BY corrida_id").fetchall() == [
-        ("celular-12", "drones_celular"), ("demo", "demo"), ("temporada-7", "drones")]
+        ("celular-12", "robots_celular"), ("demo", "demo"), ("temporada-7", "robots")]
     assert con.execute("SELECT COUNT(*) FROM camas").fetchone()[0] == 4 * 6 * 12
     assert con.execute("SELECT COUNT(*) FROM cola_sync WHERE corrida_id!='celular-12'").fetchone()[0] == 0
 
@@ -78,7 +78,7 @@ def test_guion_de_la_demo(base_mock):
     con = sqlite3.connect(base_mock["ruta"])
     q = lambda sql: con.execute(sql).fetchone()[0]
     riesgo = q("SELECT MIN(hora) FROM alertas WHERE corrida_id='demo' AND tipo='riesgo_7d' AND cama_id='B1-N2-C14'")
-    prio = q("SELECT MIN(hora) FROM drones WHERE corrida_id='demo' AND dron_id='B1' AND estado='prioridad' "
+    prio = q("SELECT MIN(hora) FROM robots WHERE corrida_id='demo' AND robot_id='B1' AND estado='prioridad' "
              "AND cama_id='B1-N2-C14'")
     conf = q("SELECT MIN(hora) FROM alertas WHERE corrida_id='demo' AND tipo='confirmacion' AND cama_id='B1-N2-C14'")
     vent = q("SELECT MIN(hora) FROM ventilacion WHERE corrida_id='demo' AND bloque=1 AND nave=2 AND estado='apagada'")

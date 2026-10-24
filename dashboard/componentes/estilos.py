@@ -85,8 +85,8 @@ PROTOTIPO = """
 .mini{display:grid;grid-template-columns:repeat(12,1fr);gap:2px}
 .mini i{height:7px;border-radius:2px;display:block}
 .bmeta{display:flex;justify-content:space-between;gap:8px;white-space:nowrap;font-size:11.5px;color:var(--muted)}
-.dron-pos{padding:0;margin-bottom:16px}
-.dron-pos .v{font-size:21px;font-weight:700;letter-spacing:-.01em;color:var(--text)}
+.robot-pos{padding:0;margin-bottom:16px}
+.robot-pos .v{font-size:21px;font-weight:700;letter-spacing:-.01em;color:var(--text)}
 .stats2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .stat{padding:12px;border-radius:14px;background:var(--card-2);border:1px solid var(--border)}
 .pano .stat{background:transparent;border:0;padding:0}

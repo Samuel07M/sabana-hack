@@ -10,7 +10,7 @@ SCHEMA = RAIZ / "contrato" / "schema.sql"
 COLUMNAS_CAMAS = ("cama_id", "bloque", "nave", "cama", "es_borde", "tiene_ventilacion")
 
 
-TABLAS_POR_CORRIDA = ("lecturas", "riesgo", "incidencias", "seguimientos", "alertas", "drones", "ventilacion",
+TABLAS_POR_CORRIDA = ("lecturas", "riesgo", "incidencias", "seguimientos", "alertas", "robots", "ventilacion",
                       "cola_sync", "corridas")
 IDS = {"inc": ("incidencias", "incidencia_id"), "alerta": ("alertas", "alerta_id"),
        "seg": ("seguimientos", "seguimiento_id"), "cola": ("cola_sync", "id")}
@@ -81,11 +81,11 @@ SQL_INSERT = {  # tabla -> sentencia (las filas llegan en el orden de las column
     "lecturas": "INSERT INTO lecturas (corrida_id, hora, cama_id, temp_c, hr, fuente) VALUES (?,?,?,?,?,?)",
     "riesgo": "INSERT INTO riesgo (corrida_id, dia, cama_id, enfermedad, riesgo_reglas, prob_ia_7d, nivel)"
               " VALUES (?,?,?,?,?,?,?)",
-    "seguimientos": "INSERT INTO seguimientos (seguimiento_id, incidencia_id, corrida_id, hora, dron_id, resultado,"
+    "seguimientos": "INSERT INTO seguimientos (seguimiento_id, incidencia_id, corrida_id, hora, robot_id, resultado,"
                     " plantas_afectadas, nota) VALUES (?,?,?,?,?,?,?,?)",
     "alertas": "INSERT INTO alertas (alerta_id, corrida_id, hora, cama_id, incidencia_id, severidad, tipo, titulo,"
                " mensaje) VALUES (?,?,?,?,?,?,?,?,?)",
-    "drones": "INSERT INTO drones (corrida_id, hora, dron_id, cama_id, estado, bateria) VALUES (?,?,?,?,?,?)",
+    "robots": "INSERT INTO robots (corrida_id, hora, robot_id, cama_id, estado, bateria) VALUES (?,?,?,?,?,?)",
     "ventilacion": "INSERT INTO ventilacion (corrida_id, hora, bloque, nave, estado, motivo) VALUES (?,?,?,?,?,?)",
     "cola_sync": "INSERT INTO cola_sync (id, corrida_id, origen, hora_generada, hora_recibida, tipo, payload)"
                  " VALUES (?,?,?,?,?,?,?)",

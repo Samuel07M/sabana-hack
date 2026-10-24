@@ -21,18 +21,18 @@ from hub.variables import ESTADOS_CONFIRMADOS, SIN_CONFIRMADA, calcular
 
 SCHEMA = RAIZ / "contrato" / "schema.sql"
 RUTA_MOCK = RAIZ / "data" / "mock.db"
-TABLAS_CORRIDA = ("lecturas", "riesgo", "incidencias", "seguimientos", "alertas", "drones", "ventilacion",
+TABLAS_CORRIDA = ("lecturas", "riesgo", "incidencias", "seguimientos", "alertas", "robots", "ventilacion",
                   "cola_sync", "corridas")
 COLS = {
     "lecturas": ("corrida_id", "hora", "cama_id", "temp_c", "hr", "fuente"),
     "riesgo": ("corrida_id", "dia", "cama_id", "enfermedad", "riesgo_reglas", "prob_ia_7d", "nivel"),
     "incidencias": ("incidencia_id", "corrida_id", "cama_id", "posicion", "origen", "estado", "hora_creada",
                     "hora_confirmada", "hora_cerrada", "confianza", "plantas_afectadas", "verdad_infectada"),
-    "seguimientos": ("seguimiento_id", "incidencia_id", "corrida_id", "hora", "dron_id", "resultado",
+    "seguimientos": ("seguimiento_id", "incidencia_id", "corrida_id", "hora", "robot_id", "resultado",
                      "plantas_afectadas", "nota"),
     "alertas": ("alerta_id", "corrida_id", "hora", "cama_id", "incidencia_id", "severidad", "tipo", "titulo",
                 "mensaje", "estado", "accion"),
-    "drones": ("corrida_id", "hora", "dron_id", "cama_id", "estado", "bateria"),
+    "robots": ("corrida_id", "hora", "robot_id", "cama_id", "estado", "bateria"),
     "ventilacion": ("corrida_id", "hora", "bloque", "nave", "estado", "motivo"),
     "cola_sync": ("id", "corrida_id", "origen", "hora_generada", "hora_recibida", "tipo", "payload"),
 }
@@ -85,7 +85,7 @@ class FuenteLocal:
         self.M = cfg["dashboard"]["mock"]
         self.rng = np.random.default_rng(corrida["semilla"])
         self.guion = bool(corrida.get("guion"))
-        self.red = "sin_red" if corrida["escenario"] == "drones_celular" else "local"
+        self.red = "sin_red" if corrida["escenario"] == "robots_celular" else "local"
         self.hora = 0
         self.ultima_sync = None
         self.hora_sync_dia: dict[int, int] = {}
@@ -106,7 +106,7 @@ class FuenteLocal:
         self._clima()
         self._plantas()
         self._ventilacion_inicial()
-        self._drones()
+        self._robots()
         self._focos()
 
     # ---- inicio ----
@@ -176,15 +176,15 @@ class FuenteLocal:
             for kn in range(self.nNav):
                 self.vent[kn] = {"estado": "encendida", "token": 0}
 
-    def _drones(self):
-        """Un dron por bloque, en la cama 1, en patrulla."""
-        self.drones = []
+    def _robots(self):
+        """Un robot por bloque, en la cama 1, en patrulla."""
+        self.robots = []
         for b in range(1, self.B + 1):
-            d = {"dron_id": f"B{b}", "bloque": b, "pos": 1, "dir": 1, "cama_id": U.cama_id(b, 1, 1),
+            d = {"robot_id": f"B{b}", "bloque": b, "pos": 1, "dir": 1, "cama_id": U.cama_id(b, 1, 1),
                  "estado": "patrulla", "bateria": 100.0, "carga_hasta": 0.0, "tarea": None, "prioridades": [],
                  "ult_insp_prio": {}, "incs": {}, "revisitas": []}
-            self.drones.append(d)
-            self._fila("drones", corrida_id=self.id, hora=0.0, dron_id=d["dron_id"], cama_id=d["cama_id"],
+            self.robots.append(d)
+            self._fila("robots", corrida_id=self.id, hora=0.0, robot_id=d["robot_id"], cama_id=d["cama_id"],
                        estado="patrulla", bateria=100)
 
     def _focos(self):
@@ -242,7 +242,7 @@ class FuenteLocal:
 
     # ---- paso de una hora ----
     def step(self, entre_ticks=None) -> bool:
-        """Avanza una hora simulada; `entre_ticks()` se llama tras cada tick de los drones (modo vivo)."""
+        """Avanza una hora simulada; `entre_ticks()` se llama tras cada tick de los robots (modo vivo)."""
         if self.hora >= self.cfg["sim"]["dias"] * 24:
             return False
         h = self.hora
@@ -250,10 +250,10 @@ class FuenteLocal:
         self._clima_hora(h)
         self._sensores(h)
         self._enfermedad(h)
-        tph = int(60 / self.cfg["drones"]["min_por_cama"])
+        tph = int(60 / self.cfg["robots"]["min_por_cama"])
         for k in range(tph):
             t = h + k / tph
-            for d in self.drones:
+            for d in self.robots:
                 self._tick(d, t, tph)
             if entre_ticks:
                 entre_ticks()
@@ -358,10 +358,10 @@ class FuenteLocal:
         st[m] = TRATADA
         self.t_sig[kn, k][m] = h + e["dias_proteccion"] * 24
 
-    # ---- drones ----
+    # ---- robots ----
     def _tick(self, d: dict, t: float, tph: int) -> None:
         """Un tick de min_por_cama: carga, revisita, prioridad, inspección o patrulla 1→72→1."""
-        D = self.cfg["drones"]
+        D = self.cfg["robots"]
         if d["estado"] == "carga":
             if t >= d["carga_hasta"] - 1e-9:
                 d["bateria"] = 100.0
@@ -391,7 +391,7 @@ class FuenteLocal:
             ta = d["tarea"]
             if ta["fase"] == "ir":
                 self._mover(d, ta["cama_id"], "prioridad", t)
-                self._lectura_dron(d, ta["cama_id"], t)
+                self._lectura_robot(d, ta["cama_id"], t)
                 ta["fase"], ta["fin"] = "insp", t + D["horas_verificacion"]
                 return
             self._mover(d, ta["cama_id"], "inspeccionando", t)
@@ -407,25 +407,25 @@ class FuenteLocal:
         d["pos"] = nxt
         cid = U.cama_id(d["bloque"], (nxt - 1) // self.CN + 1, nxt)
         self._mover(d, cid, "patrulla", t)
-        self._lectura_dron(d, cid, t)
+        self._lectura_robot(d, cid, t)
         self._inspeccion_ligera(d, cid, t)
 
     def _mover(self, d: dict, cid: str, estado: str, t: float) -> None:
-        """Registra en `drones` solo los cambios de cama o de estado."""
+        """Registra en `robots` solo los cambios de cama o de estado."""
         if d["cama_id"] == cid and d["estado"] == estado:
             return
         d["cama_id"], d["estado"] = cid, estado
-        self._fila("drones", corrida_id=self.id, hora=round(t, 2), dron_id=d["dron_id"], cama_id=cid,
+        self._fila("robots", corrida_id=self.id, hora=round(t, 2), robot_id=d["robot_id"], cama_id=cid,
                    estado=estado, bateria=int(round(d["bateria"])))
 
-    def _lectura_dron(self, d: dict, cid: str, t: float) -> None:
-        """El dron mide T y HR al pasar por la cama."""
+    def _lectura_robot(self, d: dict, cid: str, t: float) -> None:
+        """El robot mide T y HR al pasar por la cama."""
         i, s = self.idx[cid], self.cfg["sensores"]
         row = {"hora": int(math.floor(t)), "cama_id": cid,
                "temp_c": round(float(self.Tv[i] + self.rng.normal(0, s["ruido_T_sd"])), 1),
                "hr": round(float(np.clip(self.HRv[i] + self.rng.normal(0, s["ruido_HR_sd"]),
                                          *self.cfg["clima"]["hr_rango"])), 1),
-               "fuente": f"dron:{d['dron_id']}"}
+               "fuente": f"robot:{d['robot_id']}"}
         self._fila("lecturas", corrida_id=self.id, **row)
         self.lect[cid].append((row["hora"], row["temp_c"], row["hr"], row["fuente"]))
         self.lect_horas[cid].append(row["hora"])
@@ -433,7 +433,7 @@ class FuenteLocal:
 
     def _inspeccion_ligera(self, d: dict, cid: str, t: float) -> None:
         """En patrulla la cámara mira de pasada; si ve algo, se queda a verificar."""
-        D, Mo = self.cfg["drones"], self.M["drones"]
+        D, Mo = self.cfg["robots"], self.M["robots"]
         if d["incs"].get(cid, {}).get("abierta") or self._es_guion(cid):
             return
         c = self._contar(cid, D["sens_latente"], D["sens_sintomas"])
@@ -449,7 +449,7 @@ class FuenteLocal:
 
     def _ejecutar_tarea(self, d: dict, ta: dict, t: float) -> None:
         """Termina una verificación, una visita prioritaria o una revisita."""
-        D, Mo, gd = self.cfg["drones"], self.M["drones"], self.M["guion_demo"]
+        D, Mo, gd = self.cfg["robots"], self.M["robots"], self.M["guion_demo"]
         if ta["tipo"] == "confirmar":
             self._resolver(d, ta["cama_id"], t, ta["ref"], ta["det"], ta["posicion"], None)
             return
@@ -491,7 +491,7 @@ class FuenteLocal:
 
     def _resolver(self, d, cid, t, ref, det, posicion, forzar) -> None:
         """Verificación de una sospecha: confirmada o descartada."""
-        D, Mo = self.cfg["drones"], self.M["drones"]
+        D, Mo = self.cfg["robots"], self.M["robots"]
         real = self._contar(cid, 0, 0)["real"]
         confirma = True if forzar else (real > 0 and self.rng.random() < Mo["prob_confirmar"])
         plantas = forzar["plantas"] if forzar else max(det, 1)
@@ -508,7 +508,7 @@ class FuenteLocal:
         """Sin red: el dato también queda en cola_sync hasta que pase el celular."""
         if self.red != "sin_red":
             return
-        row = self._fila("cola_sync", corrida_id=self.id, origen=f"dron:{d['dron_id']}" if d else "dron",
+        row = self._fila("cola_sync", corrida_id=self.id, origen=f"robot:{d['robot_id']}" if d else "robot",
                          hora_generada=int(math.floor(t)), hora_recibida=None, tipo=tipo,
                          payload=json.dumps(payload, ensure_ascii=False))
         self.cola_pend.append(row)
@@ -550,7 +550,7 @@ class FuenteLocal:
                          f"Botrytis confirmada · {corto} · posición {inc['posicion']}. "
                          f"{plural(int(plantas), 'planta afectada', 'plantas afectadas')} (confianza {confianza:.2f}).")
             self._ventilacion_auto(inc, ahora)
-            self._programar(ahora + self.cfg["drones"]["horas_hasta_tratamiento"],
+            self._programar(ahora + self.cfg["robots"]["horas_hasta_tratamiento"],
                             lambda h, inc=inc, d=d: self._tratar(inc, d, h))
         else:
             inc["hora_cerrada"], inc["plantas_afectadas"] = ahora, 0
@@ -561,7 +561,7 @@ class FuenteLocal:
                          f"La inspección de cerca no confirmó Botrytis (confianza {confianza:.2f}).")
 
     def _seguimiento(self, d, ref, t, res, n, prev, nota) -> None:
-        """Revisita registrada por el dron; actualiza la incidencia y crea la alerta seguimiento."""
+        """Revisita registrada por el robot; actualiza la incidencia y crea la alerta seguimiento."""
         inc = self.ref_inc.get(ref)
         if not inc:
             return
@@ -569,14 +569,14 @@ class FuenteLocal:
         segs = self.segs_inc.setdefault(inc["incidencia_id"], [])
         prev_seg = segs[-1] if segs else None
         seg = self._fila("seguimientos", incidencia_id=inc["incidencia_id"], corrida_id=self.id, hora=ahora,
-                         dron_id=d["dron_id"], resultado=res, plantas_afectadas=n, nota=nota)
+                         robot_id=d["robot_id"], resultado=res, plantas_afectadas=n, nota=nota)
         segs.append(seg)
         self._cola(d, "seguimiento", {k: seg[k] for k in COLS["seguimientos"]}, t)
         corto, extra = U.corto(inc["cama_id"]), ""
         if res == "empeora":
             inc["estado"] = "confirmada"
             extra = " Se programa un nuevo tratamiento."
-            self._programar(ahora + self.cfg["drones"]["horas_hasta_tratamiento"],
+            self._programar(ahora + self.cfg["robots"]["horas_hasta_tratamiento"],
                             lambda h, inc=inc, d=d: self._tratar(inc, d, h))
         elif res == "limpia" and prev_seg and prev_seg["resultado"] == "limpia":
             inc["estado"], inc["hora_cerrada"] = "cerrada", ahora
@@ -613,7 +613,7 @@ class FuenteLocal:
         v = self.vent.get(kn)
         if not v or v["estado"] != "encendida":
             return
-        horas = self.cfg["drones"]["horas_ventilacion_apagada"]
+        horas = self.cfg["robots"]["horas_ventilacion_apagada"]
         self._cambiar_ventilacion(kn, "apagada", ahora, f"auto: incidencia #{inc['incidencia_id']}")
         tok = v["token"]
         self._alerta(ahora, inc["cama_id"], inc["incidencia_id"], "ventilacion",
@@ -639,7 +639,7 @@ class FuenteLocal:
     def variables(self, cid: str, h: int) -> dict:
         """Variables del modelo de prueba con los datos medidos (no la verdad)."""
         cam = self.camas[self.idx[cid]]
-        mp, Mo = self.M["modelo_prueba"], self.M["drones"]
+        mp, Mo = self.M["modelo_prueba"], self.M["robots"]
         horas = self.lect_horas[cid]
         desde = bisect.bisect_left(horas, h - mp["ventana_h"] - Mo["horas_validez_lectura"])
         hasta = bisect.bisect_right(horas, h)
@@ -686,7 +686,7 @@ class FuenteLocal:
                                  f"HR > {num(umbral)} % durante {v['wet72']} h.")
                 altos.setdefault(cam["bloque"], []).append((cid, prob, self._es_guion(cid)))
             self.ultimo_nivel[cid] = nivel
-        for d in self.drones:
+        for d in self.robots:
             lista = sorted(altos.get(d["bloque"], []), key=lambda x: (-x[2], -x[1]))
             d["prioridades"] = [x[0] for x in lista]
 
@@ -776,7 +776,7 @@ def correr_vivo(con: sqlite3.Connection, corrida: dict, cfg: dict) -> None:
     while src.hora < M["hora_inicial"] and src.step():
         pass
     src.escribir(con)
-    tph = int(60 / cfg["drones"]["min_por_cama"])
+    tph = int(60 / cfg["robots"]["min_por_cama"])
     pausa = 1 / (M["horas_por_segundo"] * tph)
     print(f"{corrida['corrida_id']}: en vivo desde la hora {src.hora} (Ctrl+C para parar)")
 

@@ -1,4 +1,4 @@
-"""Simulación del celular (nivel 2): descarga por Bluetooth lo guardado en los drones."""
+"""Simulación del celular (nivel 2): descarga por Bluetooth lo guardado en los robots."""
 import math
 from contextlib import closing
 

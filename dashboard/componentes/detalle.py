@@ -24,8 +24,8 @@ def _factores(v: dict, umbral: float, horas_reglas: float) -> list[tuple]:
          "<b>Botrytis confirmada en esta cama</b>" if dist == 0 else
          f"Botrytis confirmada a <b>{plural(dist, 'cama', 'camas')}</b> en la misma nave" if dist < 99 else
          "Sin casos confirmados en la nave"),
-        ("drone", "var(--insp)", "Aún sin medición directa del dron: se usa el sensor del bloque" if nulo(edad) else
-         f"Última medición directa del dron <b>hace {int(edad)} h</b>"),
+        ("robot", "var(--insp)", "Aún sin medición directa del robot: se usa el sensor del bloque" if nulo(edad) else
+         f"Última medición directa del robot <b>hace {int(edad)} h</b>"),
     ]
     if v["borde"]:
         fac.append(("edge", "var(--muted)", "Cama de borde: suele acumular más humedad"))
@@ -54,7 +54,7 @@ def contenido(ctx: Ctx, cid: str) -> str:
         f'<div class="stat" style="margin-bottom:10px;padding:14px"><div class="row" style="margin-bottom:12px">'
         f'<b>#{int(i["incidencia_id"])}</b>{chip(LABEL["inc"][i["estado"]], C_INC[i["estado"]])}'
         f'<span class="small muted">posición {int(i["posicion"])}</span></div>'
-        f'{timeline_inc(i, db.seguimientos(ctx.corrida, int(i["incidencia_id"])), cfg["drones"]["horas_hasta_tratamiento"], ctx.ini)}</div>'
+        f'{timeline_inc(i, db.seguimientos(ctx.corrida, int(i["incidencia_id"])), cfg["robots"]["horas_hasta_tratamiento"], ctx.ini)}</div>'
         for i in incs.to_dict("records"))
     return (
         f'<div class="drawer"><div><div class="small muted">Bloque {b} · Nave {n}</div><div class="drawer-t">Cama {c}</div></div>'
@@ -65,7 +65,7 @@ def contenido(ctx: Ctx, cid: str) -> str:
         f'<div class="l">Probabilidad de infección en 7 días</div></div><div class="stack" style="gap:12px">'
         f'<div class="stat"><div class="l">{ic("leaf", 13)}Riesgo por reglas</div><div class="v">'
         f'{f2(r["riesgo_reglas"]) if r is not None else "—"}</div></div>'
-        f'<div class="stat"><div class="l">{ic("drone", 13)}Última visita</div><div class="v" style="font-size:14px">'
+        f'<div class="stat"><div class="l">{ic("robot", 13)}Última visita</div><div class="v" style="font-size:14px">'
         f'{T.hace(vis["hora"].iloc[0], h) if len(vis) else "—"}</div></div></div></div>'
         f'<div class="sec">Qué explica este riesgo</div><div class="factores">'
         + "".join(f'<div class="factor">{ico_box(i, cc, True, 16)}<span>{t}</span></div>' for i, cc, t in fac)
@@ -74,7 +74,7 @@ def contenido(ctx: Ctx, cid: str) -> str:
         + f'<div class="sec">Temperatura · últimas {horas} h</div>'
         + grafica_clima(lc, sensor, "temp_c", h, horas, ctx.ini, vmin=5, vmax=30, unidad="°C", color="var(--adv)")
         + '<div class="leyenda"><span><i style="background:var(--muted)"></i>Sensor del bloque</span><span><i style="'
-          'background:var(--accent);height:8px;width:8px;border-radius:50%"></i>Medición del dron en la cama</span>'
+          'background:var(--accent);height:8px;width:8px;border-radius:50%"></i>Medición del robot en la cama</span>'
           '<span><i style="background:var(--alto)"></i>Umbral de mojado</span></div>'
         + f'<div class="sec">Riesgo · últimos {dias} días</div>'
         + grafica_riesgo(serie.tail(dias), cfg["riesgo"]["umbral_alto"], cfg["riesgo"]["umbral_medio"], ctx.ini)

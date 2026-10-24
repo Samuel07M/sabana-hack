@@ -7,7 +7,7 @@ from hub import alertas as A
 from hub import tiempo as T
 
 ESTADOS = [("todas", "Todas"), ("nueva", "Nuevas"), ("vista", "Vistas"), ("resuelta", "Resueltas")]
-COLUMNAS = [("confirmacion", "Enfermedad confirmada", "Botrytis confirmada por la inspección del dron", "octagon",
+COLUMNAS = [("confirmacion", "Enfermedad confirmada", "Botrytis confirmada por la inspección del robot", "octagon",
              "var(--crit)"),
             ("riesgo_7d", "Posible enfermedad", "Camas con riesgo alto de infección en los próximos 7 días", "trend",
              "var(--adv)")]

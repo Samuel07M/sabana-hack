@@ -26,11 +26,11 @@ def test_actual_avisa_despues_de_los_sintomas():
     assert m["anticipacion_dias"] <= 1 and m["alertas_alto"] == 0
 
 
-def test_drones_avisan_antes_que_la_ronda_manual():
+def test_robots_avisan_antes_que_la_ronda_manual():
     cfg = cfg_chica(sim={"dias": 40}, actual={"p_humano": 0.35, "dias_ronda": 4})
     cfg["enfermedad"]["latencia_dias"] = [3, 3]
-    drones, actual = (metricas.extraer(correr(cfg, e)) for e in ("drones", "actual"))
-    assert drones["afectadas_final"] <= actual["afectadas_final"]
+    robots, actual = (metricas.extraer(correr(cfg, e)) for e in ("robots", "actual"))
+    assert robots["afectadas_final"] <= actual["afectadas_final"]
 
 
 def test_ic_bootstrap_contiene_la_media():
@@ -49,8 +49,8 @@ def test_graficas_1920x1080(tmp_path, monkeypatch):
                         "confirmaciones_falsas": 0.0, "descartadas": 2.0, "alertas_alto_falsas": 30.0,
                         "focos_no_detectados": 1.0, "plantas_perdidas": 10.0} for e in esc for s in range(5)])
     series = pd.DataFrame([{"escenario": e, "semilla": s, "dia": d, "afectadas": rng.random() / 10}
-                           for e in ("actual", "drones") for s in range(5) for d in range(1, 11)])
-    riesgo = pd.DataFrame({"escenario": np.repeat(["drones", "sensor_central"], 200), "y": rng.integers(0, 2, 400),
+                           for e in ("actual", "robots") for s in range(5) for d in range(1, 11)])
+    riesgo = pd.DataFrame({"escenario": np.repeat(["robots", "sensor_central"], 200), "y": rng.integers(0, 2, 400),
                            "reglas": rng.random(400), "prob": rng.random(400)})
     pd.DataFrame({"variante": "completo", "variable": [f"v{i}" for i in range(12)], "importancia": rng.random(12),
                   "desvio": 0.01}).to_csv(tmp_path / "importancia.csv", index=False)

@@ -1,4 +1,4 @@
-"""Motor de la simulación: avanza hora a hora clima, enfermedad, sensores, riesgo, drones y alertas."""
+"""Motor de la simulación: avanza hora a hora clima, enfermedad, sensores, riesgo, robots y alertas."""
 import heapq
 import json
 from collections import defaultdict
@@ -7,18 +7,18 @@ import numpy as np
 
 from prediccion import ia, reglas, variables
 from sim import alertas, clima, enfermedad, geometria, sensores, valores
-from sim.drones import Dron, inspeccionar
+from sim.robots import Robot, inspeccionar
 from sim.enfermedad import Enfermedad
 from sim.valores import ESCENARIOS
 
 ABIERTAS = ("confirmada", "en_tratamiento", "en_seguimiento")  # incidencias activas (la finca ya las conoce)
 FLAGS = {  # qué tiene cada escenario
-    "actual": dict(modelo=False, patrulla=False, drones=False, humano=True, vent_auto=False, celular=False),
-    "sensor_central": dict(modelo=True, patrulla=False, drones=True, humano=False, vent_auto=True, celular=False),
-    "drones": dict(modelo=True, patrulla=True, drones=True, humano=False, vent_auto=True, celular=False),
-    "drones_celular": dict(modelo=True, patrulla=True, drones=True, humano=False, vent_auto=True, celular=True),
-    "drones_sin_vent": dict(modelo=True, patrulla=True, drones=True, humano=False, vent_auto=False, celular=False),
-    "demo": dict(modelo=True, patrulla=True, drones=True, humano=False, vent_auto=True, celular=False),
+    "actual": dict(modelo=False, patrulla=False, robots=False, humano=True, vent_auto=False, celular=False),
+    "sensor_central": dict(modelo=True, patrulla=False, robots=True, humano=False, vent_auto=True, celular=False),
+    "robots": dict(modelo=True, patrulla=True, robots=True, humano=False, vent_auto=True, celular=False),
+    "robots_celular": dict(modelo=True, patrulla=True, robots=True, humano=False, vent_auto=True, celular=True),
+    "robots_sin_vent": dict(modelo=True, patrulla=True, robots=True, humano=False, vent_auto=False, celular=False),
+    "demo": dict(modelo=True, patrulla=True, robots=True, humano=False, vent_auto=True, celular=False),
 }
 assert set(FLAGS) == set(ESCENARIOS)
 
@@ -35,7 +35,7 @@ class Simulacion:
         self.recolectar = recolectar
         self.n_horas = cfg["sim"]["dias"] * 24
         raiz = np.random.default_rng(semilla)
-        r_clima, r_enf, self.r_sens, self.r_dron, r_cel, self.r_hum = raiz.spawn(6)
+        r_clima, r_enf, self.r_sens, self.r_robot, r_cel, self.r_hum = raiz.spawn(6)
         self.geo = g = geometria.construir(cfg)
         self.T_base, self.HR_base = clima.generar(cfg, g, self.n_horas, r_clima)
         self.enf = Enfermedad(cfg, g, r_enf, self.n_horas)
@@ -79,7 +79,7 @@ class Simulacion:
         d0, d1 = cfg["celular"]["ventana_hora"]
         n_dias = cfg["sim"]["dias"]
         self.pases = np.arange(n_dias) * 24 + r_cel.integers(d0, d1 + 1, n_dias)
-        self.drones = [Dron(self, b) for b in range(1, n_bloques + 1)] if self.flags["drones"] else []
+        self.robots = [Robot(self, b) for b in range(1, n_bloques + 1)] if self.flags["robots"] else []
         self.h = 0
 
     # ── utilidades ──────────────────────────────────────────────────────────
@@ -109,10 +109,10 @@ class Simulacion:
         """Cuándo el sistema se entera de algo ocurrido en `hora`: ya, o en la próxima pasada del celular."""
         return self._sig_pase(max(hora, self.h + 1)) if self.flags["celular"] else hora
 
-    def fila_dron(self, dron, t: float, cama: int, estado: str) -> None:
-        """Registra posición y estado del dron."""
-        self.buf["drones"].append((self.corrida_id, round(float(t), 3), f"B{dron.bloque}",
-                                   self.geo.camas[cama]["cama_id"], estado, round(float(dron.bateria), 3)))
+    def fila_robot(self, robot, t: float, cama: int, estado: str) -> None:
+        """Registra posición y estado del robot."""
+        self.buf["robots"].append((self.corrida_id, round(float(t), 3), f"B{robot.bloque}",
+                                   self.geo.camas[cama]["cama_id"], estado, round(float(robot.bateria), 3)))
 
     def _alerta(self, hora: int, cama: int, inc_id, tipo: str, texto: tuple[str, str], empeora: bool = False) -> None:
         self.buf["alertas"].append((self._id("alerta"), self.corrida_id, hora, self.geo.camas[cama]["cama_id"], inc_id,
@@ -171,8 +171,8 @@ class Simulacion:
             self._riesgo(h)
         if self.flags["humano"] and h % 24 == cfg["actual"]["hora_ronda"]:
             self._ronda_humana(h)
-        for dron in self.drones:
-            dron.trabajar(self, h)
+        for robot in self.robots:
+            robot.trabajar(self, h)
 
     def _sensor_fijo(self, h: int) -> None:
         """Lee el sensor central de cada bloque y actualiza lo que la finca estima de cada cama."""
@@ -221,8 +221,8 @@ class Simulacion:
             self.dataset.append((h, df, reg, prob))
 
     def prioridad(self, camas: np.ndarray, t: float):
-        """Cama del dron con nivel alto, sin visita reciente y sin incidencia abierta; la de mayor prob."""
-        d = self.cfg["drones"]
+        """Cama del robot con nivel alto, sin visita reciente y sin incidencia abierta; la de mayor prob."""
+        d = self.cfg["robots"]
         libre = np.array([c not in self.abierta for c in camas])
         sel = (self.nivel_actual[camas] == "alto") & (t - self.ult_visita[camas] >= d["horas_sin_visita_prioridad"]) & libre
         if not sel.any():
@@ -236,34 +236,34 @@ class Simulacion:
                     if due <= t and self.geo.bloque_c[self.inc[k]["cama"]] == bloque]
         return min(vencidas)[1] if vencidas else None
 
-    # ── visitas del dron ────────────────────────────────────────────────────
-    def visita(self, dron, cama: int, motivo: str, t: float, dt: float) -> None:
-        """El dron llega a una cama: mide, inspecciona y, según el caso, abre una sospecha o registra la revisita."""
+    # ── visitas del robot ────────────────────────────────────────────────────
+    def visita(self, robot, cama: int, motivo: str, t: float, dt: float) -> None:
+        """El robot llega a una cama: mide, inspecciona y, según el caso, abre una sospecha o registra la revisita."""
         h = int(t)
         g, cfg = self.geo, self.cfg
-        self.fila_dron(dron, t, cama, "patrulla" if motivo == "patrulla" else "prioridad")
+        self.fila_robot(robot, t, cama, "patrulla" if motivo == "patrulla" else "prioridad")
         self.ult_visita[cama] = t
         Tm, HRm = sensores.medir(cfg, self.T_h[cama], self.HR_h[cama], self.r_sens)
         Tm, HRm = float(Tm), float(HRm)
         cid = g.camas[cama]["cama_id"]
-        self.buf["lecturas"].append((self.corrida_id, h, cid, round(Tm, 2), round(HRm, 2), f"dron:B{dron.bloque}"))
-        self._lectura_dron(dron, h, cama, Tm, HRm)
+        self.buf["lecturas"].append((self.corrida_id, h, cid, round(Tm, 2), round(HRm, 2), f"robot:B{robot.bloque}"))
+        self._lectura_robot(robot, h, cama, Tm, HRm)
         inc_id = self.abierta.get(cama)
         if motivo == "revisita":
-            pos, _, _ = inspeccionar(self.enf.estado_cama(cama), cfg["drones"], self.r_dron)
-            self.fila_dron(dron, t + dt / 2, cama, "inspeccionando")
+            pos, _, _ = inspeccionar(self.enf.estado_cama(cama), cfg["robots"], self.r_robot)
+            self.fila_robot(robot, t + dt / 2, cama, "inspeccionando")
             self.rev_pend.pop(inc_id, None)       # el resultado reprograma la próxima revisita
             self._programar(self._hora_efecto(h + 1) if self.flags["celular"] else h, "revisita",
-                            inc_id, len(pos), t, dron.id)
+                            inc_id, len(pos), t, robot.id)
         elif inc_id is None:
-            pos, reales, fps = inspeccionar(self.enf.estado_cama(cama), cfg["drones"], self.r_dron)
+            pos, reales, fps = inspeccionar(self.enf.estado_cama(cama), cfg["robots"], self.r_robot)
             if len(pos):
-                self.fila_dron(dron, t + dt / 2, cama, "inspeccionando")
-                self._sospecha(dron, cama, int(pos[0]), len(pos), reales, fps, motivo, h)
+                self.fila_robot(robot, t + dt / 2, cama, "inspeccionando")
+                self._sospecha(robot, cama, int(pos[0]), len(pos), reales, fps, motivo, h)
 
-    def _lectura_dron(self, dron, h: int, cama: int, Tm: float, HRm: float) -> None:
-        """La lectura del dron corrige el sesgo de la cama: ya (red local) o en la próxima pasada (celular)."""
-        origen = f"dron:B{dron.bloque}"
+    def _lectura_robot(self, robot, h: int, cama: int, Tm: float, HRm: float) -> None:
+        """La lectura del robot corrige el sesgo de la cama: ya (red local) o en la próxima pasada (celular)."""
+        origen = f"robot:B{robot.bloque}"
         payload = {"corrida_id": self.corrida_id, "hora": h, "cama_id": self.geo.camas[cama]["cama_id"],
                    "temp_c": round(Tm, 2), "hr": round(HRm, 2), "fuente": origen}
         self._cola_sync(origen, h, "lectura", payload)
@@ -282,7 +282,7 @@ class Simulacion:
         self.ultima[cama] = max(self.ultima[cama], h)
 
     def _pasada(self, h: int) -> None:
-        """Un trabajador pasa con el celular: descarga lo guardado por los drones y lo sincroniza."""
+        """Un trabajador pasa con el celular: descarga lo guardado por los robots y lo sincroniza."""
         for lectura in sorted(self.pend_lect):
             self._aplicar_lectura(*lectura)
         self.pend_lect.clear()
@@ -301,21 +301,21 @@ class Simulacion:
         self._tocar(inc)
         return inc
 
-    def _sospecha(self, dron, cama: int, posicion: int, n_det: int, reales: int, fps: int, motivo: str, h: int) -> None:
+    def _sospecha(self, robot, cama: int, posicion: int, n_det: int, reales: int, fps: int, motivo: str, h: int) -> None:
         """Crea la incidencia en `sospecha`; su verificación llega `horas_verificacion` después."""
         inc = self._nueva_inc(cama, posicion, "prediccion" if motivo == "prioridad" else "patrulla", h, "sospecha")
-        self._cola_sync(f"dron:B{dron.bloque}", h, "inspeccion", {
+        self._cola_sync(f"robot:B{robot.bloque}", h, "inspeccion", {
             "incidencia_id": inc["id"], "corrida_id": self.corrida_id, "cama_id": self.geo.camas[cama]["cama_id"],
             "posicion": posicion, "plantas_detectadas": n_det})
-        due = h + self.cfg["drones"]["horas_verificacion"]
+        due = h + self.cfg["robots"]["horas_verificacion"]
         self._programar(self._hora_efecto(due), "verificar", inc["id"], n_det, reales, fps)
 
     def _ev_verificar(self, h: int, inc_id: int, n_det: int, reales: int, fps: int) -> None:
         """Segunda mirada de la cámara: confirma (positivo) o descarta la sospecha."""
-        d = self.cfg["drones"]
+        d = self.cfg["robots"]
         inc, g = self.inc[inc_id], self.geo
         cama = g.camas[inc["cama"]]
-        positivo = reales > 0 or (fps > 0 and self.r_dron.random() < 1.0 - d["especificidad"] ** fps)
+        positivo = reales > 0 or (fps > 0 and self.r_robot.random() < 1.0 - d["especificidad"] ** fps)
         inc["verdad_infectada"] = int(reales > 0)
         if not positivo:
             self._estado(inc, "descartada", hora_cerrada=h)
@@ -335,7 +335,7 @@ class Simulacion:
         if not (self.flags["vent_auto"] and g.tiene_vent_c[inc["cama"]]):
             return
         n = int(g.nave_global_c[inc["cama"]])
-        horas = self.cfg["drones"]["horas_ventilacion_apagada"]
+        horas = self.cfg["robots"]["horas_ventilacion_apagada"]
         if not self.vent_off[n]:
             self.vent_off[n] = True
             cama = g.camas[inc["cama"]]
@@ -347,26 +347,26 @@ class Simulacion:
     def _ev_tratar(self, h: int, inc_id: int) -> None:
         """El personal trata la cama: la incidencia pasa a `en_tratamiento` y se agenda la revisita."""
         inc = self.inc[inc_id]
-        self.enf.tratar(inc["cama"], h, self.r_dron)
+        self.enf.tratar(inc["cama"], h, self.r_robot)
         self._estado(inc, "en_tratamiento")
-        if self.flags["drones"]:
-            self.rev_pend[inc_id] = h + self.cfg["drones"]["dias_revisita"] * 24
-        else:                                     # sin dron nadie hace seguimiento: se cierra y la cama vuelve a la ronda manual
+        if self.flags["robots"]:
+            self.rev_pend[inc_id] = h + self.cfg["robots"]["dias_revisita"] * 24
+        else:                                     # sin robot nadie hace seguimiento: se cierra y la cama vuelve a la ronda manual
             self._estado(inc, "en_seguimiento")
             self._estado(inc, "cerrada", hora_cerrada=h)
             self.abierta.pop(inc["cama"], None)
 
-    def _ev_revisita(self, h: int, inc_id: int, n: int, t_visita: float, dron_id: str) -> None:
+    def _ev_revisita(self, h: int, inc_id: int, n: int, t_visita: float, robot_id: str) -> None:
         """Resultado de una revisita: seguimiento, alerta y nuevo estado de la incidencia."""
-        d = self.cfg["drones"]
+        d = self.cfg["robots"]
         inc = self.inc[inc_id]
         previo = inc["plantas_afectadas"] or 0
         resultado = "limpia" if n == 0 else "empeora" if n > previo else "mejora" if n < previo else "igual"
-        self.buf["seguimientos"].append((self._id("seg"), inc_id, self.corrida_id, int(t_visita), dron_id, resultado, n,
+        self.buf["seguimientos"].append((self._id("seg"), inc_id, self.corrida_id, int(t_visita), robot_id, resultado, n,
                                          f"Revisita: {n} plantas visibles (antes {previo})"))
-        self._cola_sync(f"dron:{dron_id}", int(t_visita), "seguimiento",
+        self._cola_sync(f"robot:{robot_id}", int(t_visita), "seguimiento",
                         {"incidencia_id": inc_id, "corrida_id": self.corrida_id, "hora": int(t_visita),
-                         "dron_id": dron_id, "resultado": resultado, "plantas_afectadas": n})
+                         "robot_id": robot_id, "resultado": resultado, "plantas_afectadas": n})
         cama = self.geo.camas[inc["cama"]]
         self._alerta(h, inc["cama"], inc_id, "seguimiento", alertas.seguimiento(cama, resultado, n),
                      empeora=resultado == "empeora")
@@ -399,10 +399,10 @@ class Simulacion:
             pos = int(np.nonzero(self.enf.estado_cama(c) == enfermedad.SINTOMAS)[0][0]) + 1
             inc = self._nueva_inc(c, pos, "patrulla", h, "confirmada")
             inc.update(hora_confirmada=h, plantas_afectadas=int(sint[c]), verdad_infectada=1,
-                       confianza=self.cfg["drones"]["especificidad"])
+                       confianza=self.cfg["robots"]["especificidad"])
             self._alerta(h, c, inc["id"], "confirmacion",
                          alertas.confirmacion(g.camas[c], pos, inc["plantas_afectadas"], inc["confianza"]))
-            self._programar(h + self.cfg["drones"]["horas_hasta_tratamiento"], "tratar", inc["id"])
+            self._programar(h + self.cfg["robots"]["horas_hasta_tratamiento"], "tratar", inc["id"])
 
     # ── cierre ──────────────────────────────────────────────────────────────
     def finalizar(self) -> None:

@@ -1,4 +1,4 @@
-"""Dron de cable: patrulla, prioridad, inspección, revisitas y batería (uno por bloque)."""
+"""Robot de riel: patrulla, prioridad, inspección, revisitas y batería (uno por bloque)."""
 import numpy as np
 
 from sim import enfermedad
@@ -15,8 +15,8 @@ def inspeccionar(estado: np.ndarray, d: dict, rng: np.random.Generator) -> tuple
     return np.nonzero(marca)[0] + 1, reales, int(np.count_nonzero(marca)) - reales
 
 
-class Dron:
-    """Un dron por bloque; el estado real que mantiene es su reloj, su ruta y su batería."""
+class Robot:
+    """Un robot por bloque; el estado real que mantiene es su reloj, su ruta y su batería."""
 
     def __init__(self, sim, bloque: int):
         n = sim.cfg["geometria"]["naves_por_bloque"] * sim.cfg["geometria"]["camas_por_nave"]
@@ -28,12 +28,12 @@ class Dron:
 
     def trabajar(self, sim, hora: int) -> None:
         """Actúa durante [hora, hora+1): carga, revisitas vencidas, prioridad y patrulla."""
-        d = sim.cfg["drones"]
+        d = sim.cfg["robots"]
         dt = d["min_por_cama"] / 60.0
         self.t = max(self.t, float(hora))
         while self.t < hora + 1:
             if self.bateria <= d["bateria_min"]:
-                sim.fila_dron(self, self.t, self.cama_actual, "carga")
+                sim.fila_robot(self, self.t, self.cama_actual, "carga")
                 self.t += d["horas_carga"]
                 self.bateria = 1.0
                 continue

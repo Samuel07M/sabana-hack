@@ -24,7 +24,7 @@ class Ctx:
 
     @property
     def sin_red(self) -> bool:
-        """True en modo sin red (escenario drones_celular)."""
+        """True en modo sin red (escenario robots_celular)."""
         return self.red == "sin_red"
 
 

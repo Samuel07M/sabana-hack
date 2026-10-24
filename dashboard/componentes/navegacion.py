@@ -10,7 +10,7 @@ from hub import tiempo as T
 TABS = [("finca", "map", "Panorama"), ("alertas", "bell", "Alertas"), ("incidencias", "clip", "Incidencias"),
         ("ventilacion", "wind", "Ventilación"), ("analisis", "chart", "Análisis")]
 TITULOS = {
-    "finca": ("Panorama de la finca", "Riesgo a 7 días, drones e incidencias por bloque"),
+    "finca": ("Panorama de la finca", "Riesgo a 7 días, robots e incidencias por bloque"),
     "alertas": ("Alertas", "Posible enfermedad y enfermedad confirmada"),
     "incidencias": ("Incidencias", "Trazabilidad de hallazgos, tratamientos, revisitas y ventilación"),
     "ventilacion": ("Ventilación", "Control por nave para frenar el transporte de esporas"),
@@ -67,10 +67,10 @@ def lateral(corrida: str) -> None:
         pend = len(db.cola_pendiente(corrida))
         html(f'<div class="side-foot"><div class="row" style="gap:10px">{ico_box("phone", "var(--adv)", True, 16)}<div>'
              '<div style="font-weight:650;font-size:13px">Sin red</div>'
-             f'<div class="tiny muted">{pend} datos en los drones</div></div></div></div>')
+             f'<div class="tiny muted">{pend} datos en los robots</div></div></div></div>')
         if st.button("Pasa el celular", key="celular", type="primary", width="stretch"):
             n = celular.sincronizar(corrida)
-            avisar("Celular sincronizado", f"{n} datos descargados de los drones", ":material/smartphone:")
+            avisar("Celular sincronizado", f"{n} datos descargados de los robots", ":material/smartphone:")
             st.rerun()
 
 

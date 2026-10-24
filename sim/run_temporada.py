@@ -17,7 +17,7 @@ DB_DEFAULT = RAIZ / "data" / "finca.db"
 def parsear_args(argv=None) -> argparse.Namespace:
     """Argumentos de línea de comandos."""
     p = argparse.ArgumentParser(description="Corre una temporada simulada → finca.db")
-    p.add_argument("--escenario", default="drones", choices=ESCENARIOS)
+    p.add_argument("--escenario", default="robots", choices=ESCENARIOS)
     p.add_argument("--semilla", type=int, default=None, help="por defecto la de config")
     p.add_argument("--dias", type=int, default=None, help="por defecto los de config")
     p.add_argument("--db", type=Path, default=DB_DEFAULT)
