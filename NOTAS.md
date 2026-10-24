@@ -33,6 +33,18 @@ Acordado el viernes 23 de octubre, ~22:30. Responde la Fase 0 de `planSamuel.md`
 | 09:30 | `python -m sim.run_vivo --config config/demo.yaml --velocidad 1` |
 | 10:30 | Gráficas y `metricas.parquet` en `data/resultados/` |
 
+## E. Decisiones de Santiago al implementar el simulador (avisar a Samuel)
+16. **Contrato sin cambios.** `contrato/schema.sql` quedó igual. Valores nuevos que ve el dashboard: ninguno.
+17. **`prob_ia_7d` puede ser NULL** si no existe `data/modelo_ia.joblib` (el nivel sale entonces de `riesgo_reglas`). Para la demo conviene entrenar antes: `python -m prediccion.entrenar` (≈4 min). `data/` no se versiona, así que cada quien genera su base: `python -m sim.run_temporada --escenario drones --semilla 9` (temporada con incidencias en todos los estados) y `python -m sim.run_vivo --config config/demo.yaml --velocidad 1`.
+18. **`cola_sync`** se escribe en `run_vivo` y en `run_temporada` de escenarios con drones, siempre con `hora_recibida = NULL` (decisión 7). En `drones_celular` por lotes el simulador marca `hora_recibida` en la pasada diaria del celular. Las corridas de validación (`modo='experimento'`) no la escriben.
+19. **Sospecha de una hora.** Una incidencia nace `sospecha` y se verifica `drones.horas_verificacion` (1 h) después → `confirmada` o `descartada`. En `run_vivo` el dashboard la verá en `sospecha` una hora simulada.
+20. **Prioridad del dron: 6 h, no 24 h** (`drones.horas_sin_visita_prioridad`). Con 24 h la prioridad nunca se activaba porque la patrulla pasa por cada cama cada 7,2 h.
+21. **Especificidad.** `drones.especificidad` (0,98) es la de la *verificación* de una sospecha. Las falsas detecciones por planta salen de `drones.tasa_falsa_deteccion_planta` (4e-6). Con 0,02 por planta se marcarían ~1 planta por cama visitada.
+22. **Calibración (todo en `config/default.yaml` con su fuente).** `beta_vec` = 0,00294 sale de `python -m sim.calibracion` (cama contigua 5,5 % en 7 días). `beta_aire` y `beta_0` se barrieron en `sensor_central` (semillas 0-29, media ≈ 9 % de plantas afectadas). Para que hubiera suficientes horas mojadas se subieron `clima.HR_media` (82 → 88) y `clima.eventos_humedos_por_dia` (0,15 → 0,25). Un foco sin tratar crece con r ≈ 0,11-0,15/día (el plan pedía ≈ 0,2: queda por debajo, declararlo).
+23. **IA.** Hiperparámetros elegidos en validación con las semillas 30-39 (del bloque de entrenamiento). Las semillas de prueba 40-49 solo se usaron para reportar. `analisis.validar` usa semillas desde 40. Hay dos modelos: `modelo_ia` (todos los datos) y `modelo_ia_central` (solo sensor fijo, escenario `sensor_central`).
+24. **Corridas de validación**: no se guardan en `data/experimentos/*.db` por defecto (150 bases ≈ 2 GB). `python -m analisis.validar --guardar-db` las guarda.
+25. **Demo** (`config/demo.yaml`): jornada húmeda forzada (horas 30-54, +25 % HR), foco de 3 plantas latentes en B1 · Nave 2 · Cama 14 a la hora 52, sin contagio por aire ni falsas alarmas, umbral `alto` en 0,45 (la IA es prudente sin vecinas confirmadas), 8 días = 192 h ≈ 3 min a 1 h/s.
+
 ## D. Datos biológicos (`Scientificic information.pdf`, Sara B.)
 15. Parámetros del PDF pasados a `config/default.yaml`. Cambios que afectan a Samuel:
     - **Renombrado:** `clima.umbral_mojado_hr` → **`mojado.umbral_hr`**, ahora **95 %** (Broome), no 90 %. Ajustar la línea de umbral del detalle de cama (`planSamuel.md`, 2.3).

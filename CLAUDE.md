@@ -153,10 +153,12 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1          # si sale "running scripts is disabled": Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 pip install -r requirements.txt
 
-python -m sim.run_temporada --escenario drones --semilla 7      # temporada completa → data/finca.db
-python -m sim.run_vivo --config config/demo.yaml               # modo demo en vivo (escribe hora a hora)
-python -m prediccion.entrenar                                  # entrena el modelo de IA con temporadas simuladas
-python -m analisis.validar --semillas 30                       # escenarios, métricas y gráficas → data/resultados/
+python -m sim.run_temporada --escenario drones --semilla 7      # temporada completa → data/finca.db (--dias N, --anexar)
+python -m sim.run_vivo --config config/demo.yaml --velocidad 1  # modo demo en vivo, 1 h simulada por segundo (--anexar)
+python -m prediccion.entrenar                                  # entrena el modelo de IA con temporadas simuladas (≈4 min)
+python -m sim.calibracion                                      # β_vec que da 5,5 % en la cama contigua (PDF)
+python -m analisis.validar --semillas 30                       # escenarios × semillas → data/resultados/*.parquet y resumen.csv
+python -m analisis.graficas                                    # las 6 gráficas PNG → data/resultados/
 python -m hub.api                                              # API local (Samuel)
 streamlit run dashboard/app.py                                 # dashboard local (Samuel)
 pytest -q
