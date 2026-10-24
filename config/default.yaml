@@ -139,3 +139,66 @@ dashboard:
     seguimiento: [continuar_seguimiento, retratar]
     ventilacion: [entendido]
     descartada: [entendido]
+  corrida_por_defecto: demo             # fuente: supuesto · se cambia con ?corrida= en la URL
+  mock:                                 # hub/mock.py · parámetros del prototipo que no existen arriba
+    hora_inicial: 8                     # fuente: supuesto · --vivo empieza aquí
+    horas_por_segundo: 1                # fuente: supuesto · ritmo de --vivo
+    corridas:                           # fuente: supuesto · las tres corridas del prototipo
+      - {corrida_id: demo, modo: vivo, escenario: demo, semilla: 7, guion: true}
+      - {corrida_id: temporada-7, modo: temporada, escenario: drones, semilla: 7, guion: false}
+      - {corrida_id: celular-12, modo: temporada, escenario: drones_celular, semilla: 12, guion: false}
+    sensor_fijo: {nave: 3, cama_en_nave: 6}   # fuente: supuesto · un sensor fijo por bloque
+    enfermedad:                         # contagio simplificado del prototipo (los beta de arriba son de otro núcleo)
+      T_opt: 18.0                       # fuente: supuesto
+      T_ancho: 6.0                      # fuente: supuesto
+      horas_mojado_full: 10             # fuente: supuesto · horas de mojado en 24 h para factor 1
+      beta_vec: 0.05                    # fuente: supuesto · plantas vecinas en la cama (±2 posiciones)
+      peso_cama_vecina: 0.4             # fuente: supuesto · plantas de las camas contiguas (±1 posición)
+      beta_aire: 0.002                  # fuente: supuesto · corriente de aire hacia las camas siguientes
+      beta_0: 2.0e-6                    # fuente: supuesto · fondo
+      peso_foco_borde: 0.6              # fuente: supuesto · P[foco aleatorio en cama de borde]
+      dias_ventana_foco: 10             # fuente: supuesto · focos aleatorios en los primeros días
+    drones:
+      factor_inspeccion_prioridad: 2    # fuente: supuesto · la visita prioritaria mira más de cerca
+      factor_fp_patrulla: 0.02          # fuente: supuesto · falsas sospechas en patrulla
+      prob_confirmar: 0.9               # fuente: supuesto
+      confianza_confirmada: [0.75, 0.95]   # fuente: supuesto
+      confianza_descartada: [0.40, 0.60]   # fuente: supuesto
+      horas_validez_lectura: 8          # fuente: supuesto · una lectura del dron vale para la cama 8 h
+    modelo_prueba:                      # fuente: supuesto · modelo de prueba del prototipo (riesgo_reglas y prob_ia_7d)
+      ventana_h: 72
+      umbral_mojado_reglas_h: 20
+      bonus_vecina: 0.5
+      a0: -5.2
+      a_mojado: 0.16
+      a_temp: 1.5
+      a_borde: 0.8
+      a_vecina: 2.5
+      a_delta: 0.04
+      ruido: 0.35
+    guion_demo:                         # fuente: supuesto · secuencia de la demo en B1 · Nave 2 · Cama 14
+      cama: B1-N2-C14
+      hora_foco: 24
+      posiciones_foco: [21, 22, 23]
+      evento: {bloque: 1, ini: 68, fin: 82, subida_hr: 14.0}
+      dias_sin_eventos: 7               # sin eventos aleatorios en el Bloque 1 durante la primera semana
+      dia_alerta: 3
+      prob_min: 0.74
+      posicion: 22
+      plantas: 3
+      confianza: 0.88
+      seguimientos: [[mejora, 1], [limpia, 0], [limpia, 0]]
+  mapa:                                 # fuente: supuesto · mapa 3D (unidades del SVG)
+    cama_ancho: 26
+    cama_largo: 78
+    sep_camas: 8
+    pasillo: 32
+    altura_max: 48
+    altura_dron: 112
+    vista_inicial: {theta: -28, elev: 50, zoom: 1}
+  ui:                                   # fuente: supuesto
+    max_alertas_lista: 120
+    horas_grafica: 72
+    dias_riesgo: 14
+    max_historial_ventilacion: 20
+    top_camas: 6
