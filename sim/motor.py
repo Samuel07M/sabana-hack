@@ -12,6 +12,9 @@ from sim.enfermedad import Enfermedad
 from sim.valores import ESCENARIOS
 
 ABIERTAS = ("confirmada", "en_tratamiento", "en_seguimiento")  # incidencias activas (la finca ya las conoce)
+COLS_FOTO = ("incidencia_id", "corrida_id", "cama_id", "posicion", "origen", "estado", "hora_creada",  # = hub/db.py COLS_INC
+             "hora_confirmada", "hora_cerrada", "confianza", "plantas_afectadas")
+COLS_SEG = ("seguimiento_id", "incidencia_id", "corrida_id", "hora", "robot_id", "resultado", "plantas_afectadas", "nota")
 FLAGS = {  # qué tiene cada escenario
     "actual": dict(modelo=False, patrulla=False, robots=False, humano=True, vent_auto=False, celular=False),
     "sensor_central": dict(modelo=True, patrulla=False, robots=True, humano=False, vent_auto=True, celular=False),
@@ -119,17 +122,18 @@ class Simulacion:
                                     alertas.severidad(self.cfg, tipo, empeora), tipo, texto[0], texto[1]))
 
     def _cola_sync(self, origen: str, hora: int, tipo: str, payload: dict) -> None:
-        """cola_sync: en vivo la llena el simulador con hora_recibida NULL; con celular espera la pasada."""
-        if self.modo == "experimento":
-            return                                   # las corridas de validación no necesitan la cola
-        fila = [self._id("cola"), self.corrida_id, origen, hora, None, tipo, json.dumps(payload, ensure_ascii=False)]
-        if self.flags["celular"]:
-            self.cola_sync_pend.append(fila)
-        else:
-            self.buf["cola_sync"].append(tuple(fila))
+        """cola_sync solo sin red (NOTAS.md, decisión 7): el dato espera la pasada del celular, que llena hora_recibida."""
+        if self.modo == "experimento" or not self.flags["celular"]:
+            return                                   # con red local no hay cola; la validación no la necesita
+        self.cola_sync_pend.append([self._id("cola"), self.corrida_id, origen, hora, None, tipo,
+                                    json.dumps(payload, ensure_ascii=False)])
 
     def _tocar(self, inc: dict) -> None:
+        """Marca la incidencia para reescribirla y, sin red, manda su foto a la cola (como hub/mock.py)."""
         self.sucias.add(inc["id"])
+        if self.flags["celular"]:
+            foto = dict(zip(COLS_FOTO, self._fila_inc(inc)))   # _fila_inc termina en verdad_infectada: queda fuera
+            self._cola_sync(f"robot:B{self.geo.bloque_c[inc['cama']]}", self.h, "inspeccion", foto)
 
     def _estado(self, inc: dict, nuevo: str, **campos) -> None:
         """Cambia el estado de la incidencia validando la transición y marca la fila como modificada."""
@@ -154,11 +158,11 @@ class Simulacion:
         cfg, g = self.cfg, self.geo
         self.h = h
         self._vent_restaurar(h)
-        if self.flags["celular"] and h in self.pases:
-            self._pasada(h)
         while self.cola and self.cola[0][0] <= h:
             _, _, nombre, args = heapq.heappop(self.cola)
             getattr(self, f"_ev_{nombre}")(h, *args)
+        if self.flags["celular"] and h in self.pases:  # después de los eventos: lo que se supo en esta pasada viaja en ella
+            self._pasada(h)
         vent_c = self.vent_encendida_nave()[g.nave_global_c].astype(float)
         self.T_h = self.T_base[h].astype(float)
         self.HR_h = clima.hr_con_ventilacion(cfg, self.HR_base[h].astype(float), vent_c)
@@ -304,9 +308,6 @@ class Simulacion:
     def _sospecha(self, robot, cama: int, posicion: int, n_det: int, reales: int, fps: int, motivo: str, h: int) -> None:
         """Crea la incidencia en `sospecha`; su verificación llega `horas_verificacion` después."""
         inc = self._nueva_inc(cama, posicion, "prediccion" if motivo == "prioridad" else "patrulla", h, "sospecha")
-        self._cola_sync(f"robot:B{robot.bloque}", h, "inspeccion", {
-            "incidencia_id": inc["id"], "corrida_id": self.corrida_id, "cama_id": self.geo.camas[cama]["cama_id"],
-            "posicion": posicion, "plantas_detectadas": n_det})
         due = h + self.cfg["robots"]["horas_verificacion"]
         self._programar(self._hora_efecto(due), "verificar", inc["id"], n_det, reales, fps)
 
@@ -362,11 +363,10 @@ class Simulacion:
         inc = self.inc[inc_id]
         previo = inc["plantas_afectadas"] or 0
         resultado = "limpia" if n == 0 else "empeora" if n > previo else "mejora" if n < previo else "igual"
-        self.buf["seguimientos"].append((self._id("seg"), inc_id, self.corrida_id, int(t_visita), robot_id, resultado, n,
-                                         f"Revisita: {n} plantas visibles (antes {previo})"))
-        self._cola_sync(f"robot:{robot_id}", int(t_visita), "seguimiento",
-                        {"incidencia_id": inc_id, "corrida_id": self.corrida_id, "hora": int(t_visita),
-                         "robot_id": robot_id, "resultado": resultado, "plantas_afectadas": n})
+        seg = (self._id("seg"), inc_id, self.corrida_id, int(t_visita), robot_id, resultado, n,
+               f"Revisita: {n} plantas visibles (antes {previo})")
+        self.buf["seguimientos"].append(seg)
+        self._cola_sync(f"robot:{robot_id}", int(t_visita), "seguimiento", dict(zip(COLS_SEG, seg)))
         cama = self.geo.camas[inc["cama"]]
         self._alerta(h, inc["cama"], inc_id, "seguimiento", alertas.seguimiento(cama, resultado, n),
                      empeora=resultado == "empeora")

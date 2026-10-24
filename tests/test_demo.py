@@ -30,7 +30,7 @@ def test_secuencia_de_la_demo(modelo):
     assert riesgo < conf <= vent                       # alerta de riesgo → confirmación → ventilación apagada
     assert inc["origen"] == "prediccion"               # el robot fue por prioridad, no por patrulla
     assert seg and seg[0][5] == "mejora" and seg[0][3] - inc["hora_confirmada"] >= 72    # seguimiento ≥ 3 días después
-    assert sim.buf["cola_sync"] and all(f[4] is None for f in sim.buf["cola_sync"])      # paso "Sin red"
+    assert not sim.buf["cola_sync"]          # la demo es con red local; el paso "Sin red" se muestra con celular-12
 
 
 def test_anexar_conserva_la_temporada_y_no_choca_con_los_ids(tmp_path):
@@ -58,6 +58,6 @@ def test_run_vivo_escribe_hora_a_hora_y_se_puede_leer_mientras_tanto(tmp_path):
     assert con.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     assert con.execute("SELECT modo, escenario FROM corridas").fetchone() == ("vivo", "demo")
     assert con.execute("SELECT COUNT(*) FROM camas").fetchone()[0] == 72
-    assert con.execute("SELECT COUNT(*) FROM cola_sync WHERE hora_recibida IS NULL").fetchone()[0] > 0
+    assert con.execute("SELECT COUNT(*) FROM cola_sync").fetchone()[0] == 0              # red local: sin cola
     assert con.execute("SELECT MAX(hora) FROM lecturas").fetchone()[0] == 59
     con.close()

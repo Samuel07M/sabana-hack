@@ -132,6 +132,13 @@ def _filtro_riesgo(c: float) -> tuple[str, list]:
     return " AND dia*24 + ? < ?", [cargar()["riesgo"]["hora_calculo"], _lim(c)]
 
 
+def _con_puntaje(df: pd.DataFrame) -> pd.DataFrame:
+    """Sin modelo de IA entrenado el simulador deja prob_ia_7d NULL y decide el nivel con riesgo_reglas: se muestra ese."""
+    if len(df):
+        df["prob_ia_7d"] = df["prob_ia_7d"].fillna(df["riesgo_reglas"])
+    return df
+
+
 def riesgo_ultimo(corrida_id: str) -> pd.DataFrame:
     """Riesgo del último día calculado (hasta hoy), una fila por cama."""
     c = corte(corrida_id)
@@ -146,13 +153,14 @@ def riesgo_ultimo(corrida_id: str) -> pd.DataFrame:
 def riesgo_dia(corrida_id: str, dia: int) -> pd.DataFrame:
     """Riesgo de todas las camas en un día."""
     f, p = _filtro_riesgo(corte(corrida_id))
-    return _q(f"SELECT * FROM riesgo WHERE corrida_id=? AND dia=?{f} ORDER BY cama_id", [corrida_id, dia, *p])
+    return _con_puntaje(_q(f"SELECT * FROM riesgo WHERE corrida_id=? AND dia=?{f} ORDER BY cama_id", [corrida_id, dia, *p]))
 
 
 def riesgo_cama(corrida_id: str, cama_id: str) -> pd.DataFrame:
     """Serie diaria de riesgo de una cama."""
     f, p = _filtro_riesgo(corte(corrida_id))
-    return _q(f"SELECT * FROM riesgo WHERE corrida_id=? AND cama_id=?{f} ORDER BY dia", [corrida_id, cama_id, *p])
+    return _con_puntaje(_q(f"SELECT * FROM riesgo WHERE corrida_id=? AND cama_id=?{f} ORDER BY dia",
+                           [corrida_id, cama_id, *p]))
 
 
 def serie_riesgo(corrida_id: str) -> pd.DataFrame:

@@ -153,7 +153,8 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1          # si sale "running scripts is disabled": Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 pip install -r requirements.txt
 
-python -m sim.run_temporada --escenario robots --semilla 7      # temporada completa → data/finca.db (--dias N; conserva las demás corridas, --recrear borra la base)
+python -m sim.preparar_base                                     # data/finca.db lista para el tablero: temporada-9 (red local) + celular-12 (sin red)
+python -m sim.run_temporada --escenario robots --semilla 7      # una temporada → data/finca.db como <escenario>-<semilla> (temporada-7, celular-12…; --corrida, --dias N, --recrear)
 python -m sim.run_vivo --config config/demo.yaml --velocidad 1  # modo demo en vivo, 1 h simulada por segundo (conserva la temporada; --recrear borra la base)
 python -m prediccion.entrenar                                  # entrena el modelo de IA con temporadas simuladas (≈4 min)
 python -m sim.calibracion                                      # β_cama (r = 0,2/día) y β_vec (cama contigua 5,5 %) con las metas del PDF

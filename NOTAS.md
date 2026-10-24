@@ -21,7 +21,7 @@ Acordado el viernes 23 de octubre, ~22:30. Responde la Fase 0 de `planSamuel.md`
 ## C. Entregas y demo
 11. **`run_vivo` + `config/demo.yaml` a las 09:30** (no 10:30) para que Samuel ensaye. Gráficas siguen a las 10:30.
 12. **03:30: `finca.db` parcial** (clima, lecturas, riesgo, alertas; sin robots) para integrar antes de las 08:00.
-13. **Paso sin red en la demo:** `demo.yaml` hace que `run_vivo` escriba `cola_sync`; el guion incluye *Sin red → Pasa el celular*. Demo total ≈ 3 min.
+13. *(Reemplazado por el punto 32.)* **Paso sin red en la demo:** `demo.yaml` hace que `run_vivo` escriba `cola_sync`; el guion incluye *Sin red → Pasa el celular*. Demo total ≈ 3 min.
 14. **Controles de demo:** solo pausa, del lado del dashboard (deja de leer). Sin "saltar al siguiente evento".
 
 ### Horario de entregas de Santiago a Samuel
@@ -36,7 +36,7 @@ Acordado el viernes 23 de octubre, ~22:30. Responde la Fase 0 de `planSamuel.md`
 ## E. Decisiones de Santiago al implementar el simulador (avisar a Samuel)
 16. **Contrato sin cambios.** `contrato/schema.sql` quedó igual. Valores nuevos que ve el dashboard: ninguno.
 17. **`prob_ia_7d` puede ser NULL** si no existe `data/modelo_ia.joblib` (el nivel sale entonces de `riesgo_reglas`). Para la demo conviene entrenar antes: `python -m prediccion.entrenar` (≈4 min). `data/` no se versiona, así que cada quien genera su base: `python -m sim.run_temporada --escenario robots --semilla 9` (temporada con incidencias en todos los estados) y `python -m sim.run_vivo --config config/demo.yaml --velocidad 1`.
-18. **`cola_sync`** se escribe en `run_vivo` y en `run_temporada` de escenarios con robots, siempre con `hora_recibida = NULL` (decisión 7). En `robots_celular` por lotes el simulador marca `hora_recibida` en la pasada diaria del celular. Las corridas de validación (`modo='experimento'`) no la escriben.
+18. *(Reemplazado por el punto 32.)* **`cola_sync`** se escribe en `run_vivo` y en `run_temporada` de escenarios con robots, siempre con `hora_recibida = NULL` (decisión 7). En `robots_celular` por lotes el simulador marca `hora_recibida` en la pasada diaria del celular. Las corridas de validación (`modo='experimento'`) no la escriben.
 19. **Sospecha de una hora.** Una incidencia nace `sospecha` y se verifica `robots.horas_verificacion` (1 h) después → `confirmada` o `descartada`. En `run_vivo` el dashboard la verá en `sospecha` una hora simulada.
 20. **Prioridad del robot: 6 h, no 24 h** (`robots.horas_sin_visita_prioridad`). Con 24 h la prioridad nunca se activaba porque la patrulla pasa por cada cama cada 7,2 h.
 21. **Especificidad.** `robots.especificidad` (0,98) es la de la *verificación* de una sospecha. Las falsas detecciones por planta salen de `robots.tasa_falsa_deteccion_planta` (4e-6). Con 0,02 por planta se marcarían ~1 planta por cama visitada.
@@ -52,6 +52,13 @@ Acordado el viernes 23 de octubre, ~22:30. Responde la Fase 0 de `planSamuel.md`
 
 ## F. Notas de Samuel
 31. **(24 oct) Datos de prueba del dashboard:** `python -m hub.mock` genera `data/mock.db` (corridas `demo`, `temporada-7` y `celular-12`, con `contrato/schema.sql` tal cual) y `python -m hub.mock --vivo --corrida demo` la escribe en vivo. El dashboard cambia de base con `FINCA_DB` (`$env:FINCA_DB = "data\mock.db"`; por defecto `data\finca.db`) y de corrida con `?corrida=` en la URL.
+32. **(24 oct) Integración simulador ↔ hub/tablero.**
+    - **Nombres de corrida por escenario:** `run_temporada` usa `temporada-<s>` (robots), `celular-<s>` (robots_celular), `central-<s>`, `actual-<s>`, `sinvent-<s>`; `--corrida` para otro nombre. Dos escenarios con la misma semilla ya no se pisan.
+    - **`cola_sync` solo sin red** (como `hub/mock.py`): con red local no se escribe. Sin red, cada cambio de una incidencia viaja como `inspeccion` con su foto (columnas de `incidencias` sin `verdad_infectada`), `seguimiento` con la fila completa y `lectura` con la fila de `lecturas`. El simulador marca `hora_recibida` en su pasada diaria; lo pendiente al final queda para el botón *Pasa el celular*.
+    - **El paso "Sin red" de la demo** se muestra con `?corrida=celular-12`, no con la corrida `demo` (que es con red local).
+    - **Sin modelo de IA entrenado**, el hub muestra `riesgo_reglas` donde `prob_ia_7d` viene vacío (`hub/db.py`, `_con_puntaje`): antes el Panorama y el detalle de cama se caían.
+    - **Base real en un comando:** `python -m sim.preparar_base` (temporada-9 + celular-12); la demo se agrega con `run_vivo`.
+    - **Prueba de integración** `tests/test_integracion.py`: el simulador escribe, el hub lee todas sus consultas y las 5 pantallas del tablero cargan, con y sin red.
 
 ## D. Datos biológicos (`Scientificic information.pdf`, Sara B.)
 15. Parámetros del PDF pasados a `config/default.yaml`. Cambios que afectan a Samuel:

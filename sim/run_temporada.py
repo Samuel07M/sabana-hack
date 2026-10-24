@@ -12,6 +12,8 @@ from sim.motor import Simulacion
 from sim.valores import ESCENARIOS
 
 DB_DEFAULT = RAIZ / "data" / "finca.db"
+PREFIJOS = {"robots": "temporada", "robots_celular": "celular", "robots_sin_vent": "sinvent",  # mismos nombres que hub/mock.py
+            "sensor_central": "central", "actual": "actual", "demo": "demo"}
 
 
 def parsear_args(argv=None) -> argparse.Namespace:
@@ -20,12 +22,18 @@ def parsear_args(argv=None) -> argparse.Namespace:
     p.add_argument("--escenario", default="robots", choices=ESCENARIOS)
     p.add_argument("--semilla", type=int, default=None, help="por defecto la de config")
     p.add_argument("--dias", type=int, default=None, help="por defecto los de config")
+    p.add_argument("--corrida", default=None, help="id de la corrida (por defecto <prefijo del escenario>-<semilla>)")
     p.add_argument("--db", type=Path, default=DB_DEFAULT)
     p.add_argument("--config", type=Path, default=None, help="YAML que se aplica sobre default.yaml")
     p.add_argument("--recrear", action="store_true", help="borra la base y la crea de nuevo (por defecto se conserva "
                                                           "y solo se reemplaza esta corrida)")
     p.add_argument("--anexar", action="store_true", help=argparse.SUPPRESS)   # compatibilidad: ya es el comportamiento por defecto
     return p.parse_args(argv)
+
+
+def corrida_por_defecto(escenario: str, semilla: int) -> str:
+    """Id de corrida según el escenario: temporada-9, celular-12… (dos escenarios no se pisan con la misma semilla)."""
+    return f"{PREFIJOS[escenario]}-{semilla}"
 
 
 def guardar_verdad(sim: Simulacion, ruta: Path) -> None:
@@ -40,7 +48,7 @@ def guardar_verdad(sim: Simulacion, ruta: Path) -> None:
 def correr(cfg: dict, escenario: str, semilla: int, db: Path, corrida_id: str | None = None,
            modo: str = "temporada", verdad: Path | None = None, modelo="auto", recrear: bool = False) -> Simulacion:
     """Simula una temporada completa y la escribe en `db`; devuelve la simulación."""
-    corrida_id = corrida_id or f"temporada-{semilla}"
+    corrida_id = corrida_id or corrida_por_defecto(escenario, semilla)
     con = escritor.crear_base(db, cfg, recrear=recrear)
     try:
         escritor.borrar_corrida(con, corrida_id)
@@ -69,14 +77,14 @@ def main(argv=None) -> None:
     if args.dias is not None:
         cfg["sim"]["dias"] = args.dias
     cfg["semilla"] = semilla
-    corrida_id = f"temporada-{semilla}"
+    corrida_id = args.corrida or corrida_por_defecto(args.escenario, semilla)
     verdad = args.db.parent / f"verdad_{corrida_id}.parquet"
     t0 = time.time()
     correr(cfg, args.escenario, semilla, args.db, corrida_id, verdad=verdad, recrear=args.recrear)
     con = sqlite3.connect(args.db)
     filas = escritor.contar_filas(con)
     con.close()
-    print(f"{args.db} · escenario={args.escenario} semilla={semilla} dias={cfg['sim']['dias']} · {time.time() - t0:.1f} s")
+    print(f"{args.db} · corrida={corrida_id} escenario={args.escenario} semilla={semilla} dias={cfg['sim']['dias']} · {time.time() - t0:.1f} s")
     for tabla, n in filas.items():
         print(f"  {tabla}: {n}")
 
