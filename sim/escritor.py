@@ -10,10 +10,23 @@ SCHEMA = RAIZ / "contrato" / "schema.sql"
 COLUMNAS_CAMAS = ("cama_id", "bloque", "nave", "cama", "es_borde", "tiene_ventilacion")
 
 
-def crear_base(ruta: Path, cfg: dict) -> sqlite3.Connection:
-    """Recrea la base en `ruta` con el esquema del contrato, WAL y busy_timeout."""
+TABLAS_POR_CORRIDA = ("lecturas", "riesgo", "incidencias", "seguimientos", "alertas", "drones", "ventilacion",
+                      "cola_sync", "corridas")
+IDS = {"inc": ("incidencias", "incidencia_id"), "alerta": ("alertas", "alerta_id"),
+       "seg": ("seguimientos", "seguimiento_id"), "cola": ("cola_sync", "id")}
+
+
+def crear_base(ruta: Path, cfg: dict, anexar: bool = False) -> sqlite3.Connection:
+    """Recrea la base en `ruta` con el esquema del contrato, WAL y busy_timeout (con `anexar`, conserva la existente)."""
     ruta = Path(ruta)
     ruta.parent.mkdir(parents=True, exist_ok=True)
+    if anexar and ruta.exists():
+        con = sqlite3.connect(ruta)
+        con.execute("PRAGMA journal_mode=WAL")
+        con.execute(f"PRAGMA busy_timeout={int(cfg['base_datos']['busy_timeout_ms'])}")
+        if con.execute("SELECT COUNT(*) FROM sqlite_master WHERE name='corridas'").fetchone()[0]:
+            return con
+        con.close()
     if ruta.exists():
         print(f"aviso: {ruta} ya existía y se recrea desde contrato/schema.sql")
     try:
@@ -46,10 +59,22 @@ def insertar_corrida(con: sqlite3.Connection, corrida_id: str, modo: str,
 
 
 def insertar_camas(con: sqlite3.Connection, camas: list[dict]) -> None:
-    """Inserta la geometría en `camas` con executemany."""
+    """Inserta la geometría en `camas` con executemany (las camas que ya existen se conservan)."""
     filas = [tuple(c[k] for k in COLUMNAS_CAMAS) for c in camas]
     with con:
-        con.executemany("INSERT INTO camas VALUES (?, ?, ?, ?, ?, ?)", filas)
+        con.executemany("INSERT OR IGNORE INTO camas VALUES (?, ?, ?, ?, ?, ?)", filas)
+
+
+def borrar_corrida(con: sqlite3.Connection, corrida_id: str) -> None:
+    """Quita de todas las tablas las filas de una corrida (para reemplazarla al anexar)."""
+    with con:
+        for tabla in TABLAS_POR_CORRIDA:
+            con.execute(f"DELETE FROM {tabla} WHERE corrida_id = ?", (corrida_id,))
+
+
+def ids_iniciales(con: sqlite3.Connection) -> dict[str, int]:
+    """Último id usado en cada tabla con id propio: las corridas anexadas siguen la numeración."""
+    return {k: con.execute(f"SELECT COALESCE(MAX({col}), 0) FROM {tabla}").fetchone()[0] for k, (tabla, col) in IDS.items()}
 
 
 SQL_INSERT = {  # tabla -> sentencia (las filas llegan en el orden de las columnas indicadas)

@@ -19,6 +19,7 @@ def parsear_args(argv=None) -> argparse.Namespace:
     p.add_argument("--db", type=Path, default=DB_DEFAULT)
     p.add_argument("--semilla", type=int, default=None, help="por defecto la de la config")
     p.add_argument("--horas", type=int, default=None, help="por defecto los días de la config × 24")
+    p.add_argument("--anexar", action="store_true", help="conserva la base y reemplaza solo la corrida `demo`")
     return p.parse_args(argv)
 
 
@@ -28,11 +29,12 @@ def main(argv=None) -> None:
     cfg = cargar_config(args.config)
     semilla = cfg["semilla"] if args.semilla is None else args.semilla
     cfg["semilla"] = semilla
-    con = escritor.crear_base(args.db, cfg)
+    con = escritor.crear_base(args.db, cfg, anexar=args.anexar)
     try:
+        escritor.borrar_corrida(con, CORRIDA_DEMO)
         escritor.insertar_corrida(con, CORRIDA_DEMO, "vivo", "demo", semilla, cfg)
         escritor.insertar_camas(con, geometria.listar_camas(cfg))
-        sim = Simulacion(cfg, "demo", semilla, CORRIDA_DEMO, modo="vivo")
+        sim = Simulacion(cfg, "demo", semilla, CORRIDA_DEMO, modo="vivo", ids_iniciales=escritor.ids_iniciales(con))
         horas = args.horas or sim.n_horas
         espera = 1.0 / args.velocidad if args.velocidad > 0 else 0.0
         print(f"demo en vivo → {args.db} · {horas} h simuladas · {args.velocidad} h/s")

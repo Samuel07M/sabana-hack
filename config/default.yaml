@@ -110,6 +110,7 @@ entrenamiento:
   min_samples_leaf: 500                 # fuente: supuesto · alto: las filas de una misma cama y semana están muy correlacionadas
   l2_regularization: 1.0                # fuente: supuesto
   repeticiones_permutacion: 3           # fuente: supuesto
+  muestra_permutacion: 60000            # fuente: supuesto · filas de prueba usadas para la importancia por permutación
 actual: {p_humano: 0.35, dias_ronda: 4, hora_ronda: 10}  # fuente: supuesto · una cama por pasada cada dias_ronda
 celular:
   ventana_hora: [7, 15]                 # fuente: supuesto · una pasada al día

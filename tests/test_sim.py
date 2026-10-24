@@ -246,6 +246,17 @@ def test_escenarios_comparten_los_sorteos_de_infeccion():
     assert (a.enf.U == b.enf.U).all() and (a.T_base == b.T_base).all()
 
 
+def test_incidencias_pasan_por_todos_los_estados():
+    cfg = cfg_chica(sim={"dias": 40})
+    cfg["drones"]["tasa_falsa_deteccion_planta"] = 0.01          # algunas sospechas serán falsas → descartada
+    sim = Simulacion(cfg, "drones", 1, "t", modelo=None)
+    vistos = set()
+    for h in range(sim.n_horas):
+        sim.paso(h)
+        vistos |= {f[5] for f in sim.filas_incidencias()}      # cada hora, el estado de las filas modificadas
+    assert vistos == set(valores.ESTADOS_INCIDENCIA)
+
+
 # ── máquina de estados ──────────────────────────────────────────────────────
 def test_transiciones_invalidas_lanzan_error():
     valores.validar_transicion("sospecha", "confirmada")

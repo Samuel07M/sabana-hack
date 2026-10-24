@@ -22,6 +22,7 @@ def parsear_args(argv=None) -> argparse.Namespace:
     p.add_argument("--dias", type=int, default=None, help="por defecto los de config")
     p.add_argument("--db", type=Path, default=DB_DEFAULT)
     p.add_argument("--config", type=Path, default=None, help="YAML que se aplica sobre default.yaml")
+    p.add_argument("--anexar", action="store_true", help="conserva la base y reemplaza solo esta corrida")
     return p.parse_args(argv)
 
 
@@ -35,14 +36,16 @@ def guardar_verdad(sim: Simulacion, ruta: Path) -> None:
 
 
 def correr(cfg: dict, escenario: str, semilla: int, db: Path, corrida_id: str | None = None,
-           modo: str = "temporada", verdad: Path | None = None, modelo="auto") -> Simulacion:
+           modo: str = "temporada", verdad: Path | None = None, modelo="auto", anexar: bool = False) -> Simulacion:
     """Simula una temporada completa y la escribe en `db`; devuelve la simulación."""
     corrida_id = corrida_id or f"temporada-{semilla}"
-    con = escritor.crear_base(db, cfg)
+    con = escritor.crear_base(db, cfg, anexar=anexar)
     try:
+        escritor.borrar_corrida(con, corrida_id)
         escritor.insertar_corrida(con, corrida_id, modo, escenario, semilla, cfg)
         escritor.insertar_camas(con, geometria.listar_camas(cfg))
-        sim = Simulacion(cfg, escenario, semilla, corrida_id, modo=modo, modelo=modelo)
+        sim = Simulacion(cfg, escenario, semilla, corrida_id, modo=modo, modelo=modelo,
+                         ids_iniciales=escritor.ids_iniciales(con))
         for h in range(sim.n_horas):
             sim.paso(h)
             if h % 24 == 23:
@@ -67,7 +70,7 @@ def main(argv=None) -> None:
     corrida_id = f"temporada-{semilla}"
     verdad = args.db.parent / f"verdad_{corrida_id}.parquet"
     t0 = time.time()
-    correr(cfg, args.escenario, semilla, args.db, corrida_id, verdad=verdad)
+    correr(cfg, args.escenario, semilla, args.db, corrida_id, verdad=verdad, anexar=args.anexar)
     con = sqlite3.connect(args.db)
     filas = escritor.contar_filas(con)
     con.close()

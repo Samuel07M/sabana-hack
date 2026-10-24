@@ -20,11 +20,12 @@ def dataset_de_corrida(sim: Simulacion) -> pd.DataFrame:
     cfg, g = sim.cfg, sim.geo
     cambios, horizonte = sim.cambios(), cfg["riesgo"]["horizonte_h"]
     partes = []
-    for h, df, reg, _ in sim.dataset:
+    for h, df, reg, prob in sim.dataset:
         if h + horizonte >= sim.n_horas:      # sin 7 días completos por delante la etiqueta es incierta
             continue
         d = df.copy()
         d["reglas"] = reg
+        d["prob"] = np.nan if prob is None else prob
         d["y"] = etiquetas.etiquetas(cambios, g.cama_de_planta, g.n_camas, sim.n_horas, h, horizonte)
         d["dia"], d["cama"], d["semilla"] = h // 24, np.arange(g.n_camas), sim.semilla
         partes.append(d)
@@ -85,7 +86,7 @@ def main() -> None:
         prob = modelo.predict_proba(d_test[list(VARIABLES)])[:, 1]
         filas.append({"variante": variante, "modelo": "reglas", **metricas(d_test, d_test["reglas"].to_numpy(), k)})
         filas.append({"variante": variante, "modelo": "IA", **metricas(d_test, prob, k)})
-        muestra = d_test.sample(min(len(d_test), 60000), random_state=0)
+        muestra = d_test.sample(min(len(d_test), cfg["entrenamiento"]["muestra_permutacion"]), random_state=cfg["semilla"])
         imp = permutation_importance(modelo, muestra[list(VARIABLES)], muestra["y"], scoring="roc_auc",
                                      n_repeats=cfg["entrenamiento"]["repeticiones_permutacion"], random_state=0)
         importancia.append(pd.DataFrame({"variante": variante, "variable": VARIABLES, "importancia": imp.importances_mean,

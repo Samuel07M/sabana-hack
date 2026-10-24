@@ -27,7 +27,7 @@ class Simulacion:
     """Una corrida: se avanza con `paso(hora)`; las filas nuevas quedan en `self.buf`."""
 
     def __init__(self, cfg: dict, escenario: str, semilla: int, corrida_id: str, modo: str = "temporada",
-                 modelo="auto", recolectar: bool = False):
+                 modelo="auto", recolectar: bool = False, ids_iniciales: dict | None = None):
         if escenario not in FLAGS:
             raise ValueError(f"escenario '{escenario}' fuera del contrato: {ESCENARIOS}")
         self.cfg, self.escenario, self.semilla, self.corrida_id, self.modo = cfg, escenario, semilla, corrida_id, modo
@@ -71,7 +71,7 @@ class Simulacion:
         self.rev_pend: dict[int, float] = {}        # incidencia -> hora de la próxima revisita
         self.sucias: set[int] = set()
         self.ult_visita = np.full(g.n_camas, -np.inf)
-        self.ids = defaultdict(int)
+        self.ids = defaultdict(int, ids_iniciales or {})
         self.cola: list[tuple] = []                 # eventos diferidos (hora, seq, nombre, args)
         self.buf: dict[str, list] = defaultdict(list)
         self.cola_sync_pend: list[list] = []

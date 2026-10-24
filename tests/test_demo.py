@@ -33,6 +33,24 @@ def test_secuencia_de_la_demo(modelo):
     assert sim.buf["cola_sync"] and all(f[4] is None for f in sim.buf["cola_sync"])      # paso "Sin red"
 
 
+def test_anexar_conserva_la_temporada_y_no_choca_con_los_ids(tmp_path):
+    from sim import run_temporada
+    db = tmp_path / "finca.db"
+    run_temporada.main(["--dias", "20", "--semilla", "9", "--db", str(db)])
+    args = ["--config", str(RAIZ / "config" / "demo.yaml"), "--velocidad", "0", "--db", str(db), "--horas", "100", "--anexar"]
+    run_vivo.main(args)
+    run_vivo.main(args)                                            # repetir reemplaza solo la corrida demo
+    con = sqlite3.connect(db)
+    assert {r[0] for r in con.execute("SELECT corrida_id FROM corridas")} == {"temporada-9", "demo"}
+    assert con.execute("SELECT COUNT(*) FROM camas").fetchone()[0] == 288
+    assert con.execute("SELECT COUNT(*) FROM incidencias WHERE corrida_id='temporada-9'").fetchone()[0] > 0
+    assert con.execute("SELECT COUNT(*) FROM incidencias WHERE corrida_id='demo'").fetchone()[0] > 0
+    assert con.execute("SELECT COUNT(*) FROM alertas WHERE corrida_id='demo'").fetchone()[0] > 0
+    ids = [r[0] for r in con.execute("SELECT alerta_id FROM alertas")]
+    assert len(ids) == len(set(ids))
+    con.close()
+
+
 def test_run_vivo_escribe_hora_a_hora_y_se_puede_leer_mientras_tanto(tmp_path):
     db = tmp_path / "finca.db"
     run_vivo.main(["--config", str(RAIZ / "config" / "demo.yaml"), "--velocidad", "0", "--db", str(db), "--horas", "60"])
