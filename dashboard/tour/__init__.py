@@ -49,14 +49,19 @@ def en_vivo() -> None:
 
 
 def _avanzar_play() -> None:
-    """Play normal: horas_por_segundo_play desde el último tick, sin pasar de lo escrito."""
-    r = st.session_state.repro
+    """Play normal: horas_por_segundo_play desde el último tick; al final de lo escrito vuelve a la hora 0."""
+    ss, cfg = st.session_state, _cfg()
+    r = ss.repro
     ahora = time.time()
     real = db.ahora_real(r["corrida"])
-    r["tope"] = min(real, r["tope"] + (ahora - r.get("t", ahora)) * _cfg()["horas_por_segundo_play"])
+    if real > r.get("real", -1):                # la corrida sigue creciendo (run_vivo escribiendo)
+        r["real"], r["t_real"] = real, ahora
+    if r["tope"] >= real and ahora - r.get("t_real", ahora) > cfg["espera_vivo_s"]:
+        r["tope"] = 0.0                         # terminó la corrida: la simulación vuelve a empezar
+        ss.criticas_vistas, ss.primera = set(), True
+    else:
+        r["tope"] = min(real, r["tope"] + (ahora - r.get("t", ahora)) * cfg["horas_por_segundo_play"])
     r["t"] = ahora
-    if r["tope"] >= real:
-        r["play"] = False
 
 
 # ── ciclo del tour ───────────────────────────────────────────────────────────
@@ -144,13 +149,13 @@ def _avanzar_busqueda() -> None:
 
 
 def salir() -> None:
-    """Cierra el tour: la simulación queda en pausa donde iba, con play / pausa / en vivo en la barra."""
+    """Cierra el tour: la simulación sigue corriendo desde donde iba (play / pausa / en vivo en la barra)."""
     ss = st.session_state
     t = ss.tour or {}
     if t.get("repro_demo") and ss.corrida_tour != _cfg()["corrida"]:
         ss.corrida_tour, ss.repro = _cfg()["corrida"], t["repro_demo"]
     if ss.get("repro"):
-        ss.repro["play"] = False
+        ss.repro.update(play=True, t=time.time())
     ss.tour, ss.mapa_capa, ss.cama = None, None, None
 
 
