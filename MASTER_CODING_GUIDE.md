@@ -93,7 +93,8 @@ SabanaHack/
 ├── CLAUDE.md                 contexto del repo            (ambos)
 ├── MASTER_CODING_GUIDE.md    esta guía                    (Santiago)
 ├── planSantiago.md           plan de Santiago             (Santiago)
-├── planSamuel.md             plan de Samuel               (Samuel · aún no existe)
+├── planSamuel.md             plan de Samuel               (Samuel · solo lectura)
+├── prompts/                  prompts de Samuel            (Samuel · NO TOCAR)
 ├── NOTAS.md                  notas entre los dos          (ambos)
 ├── requirements.txt          versiones fijadas            (ambos)
 ├── .gitignore / .gitattributes                            (ambos)
@@ -174,7 +175,7 @@ Romper cualquiera de estos es una regresión. Si una tarea lo exige, **pregunta 
 
 1. **Sin internet en tiempo de ejecución.** Ninguna importación ni llamada de red.
 2. **Propiedad de carpetas.** Nunca escribas en `hub/` ni `dashboard/`.
-3. **Quién escribe qué en la base.** El simulador escribe `corridas`, `camas`, `lecturas`, `riesgo`, `incidencias`, `seguimientos`, `drones`, `ventilacion`, `cola_sync` y crea `alertas`. El hub/dashboard solo escribe `alertas.estado`, `alertas.accion`, `ventilacion` y la cola de sincronización.
+3. **Quién escribe qué en la base.** El simulador escribe `corridas`, `camas`, `lecturas`, `riesgo`, `incidencias`, `seguimientos`, `drones`, `ventilacion`, `cola_sync` y crea `alertas`. El hub/dashboard solo escribe `alertas.estado`, `alertas.accion`, `ventilacion` y la cola de sincronización. `ventilacion` y `cola_sync` las escriben los dos: el reparto exacto está pendiente (sección 13, decisiones abiertas con Samuel).
 4. **El contrato (`contrato/schema.sql`) no cambia sin acuerdo de los dos.** Ni columnas, ni nombres, ni valores permitidos.
 5. **La verdad no va a la base ni al dashboard.** El estado real de cada planta se guarda en `data/verdad_<corrida>.parquet` y solo lo usan `prediccion/etiquetas.py`, `prediccion/entrenar.py` y `analisis/`. Excepción del contrato: `incidencias.verdad_infectada` (solo validación; el dashboard no lo muestra).
 6. **`prediccion/variables.py` nunca lee la verdad.** Solo lecturas medidas, incidencias **confirmadas**, ventilación y geometría.
@@ -619,7 +620,21 @@ Casos donde falla (mostrarlos): periodos secos con contagio por aire; latentes q
 - [ ] Escenario `demo` con la secuencia completa en < 3 min.
 - [ ] Gráficas en `data/resultados/`.
 
-**Huecos conocidos:** `planSamuel.md` aún no existe → la frontera con Samuel es **solo** el contrato. Las banderas `run_temporada --dias` y `run_vivo --velocidad` aparecen en el plan pero no en la lista de comandos de `CLAUDE.md`: son obligatorias.
+**Decisiones abiertas con Samuel (`planSamuel.md`, Fase 0):** afectan al simulador y **no se implementan hasta que estén escritas en `NOTAS.md`**. Propuestas de Samuel:
+
+| # | Tema | Propuesta de Samuel | Impacto en `sim/` |
+|---|---|---|---|
+| 1 | Quién escribe `ventilacion` | Simulador = apagado automático; dashboard = cambios manuales; `motivo` distingue (`auto: incidencia #12` / `manual: agrónomo`) | Formato de `motivo` |
+| 2 | ¿Ventilación automática o sugerida? | Sugerida con botón *Apagar 48 h / Mantener* | `run_vivo` debe **leer** `ventilacion` cada hora y obedecerla |
+| 3 | Quién escribe `cola_sync` | Simulador escribe con `hora_recibida = NULL`; el hub la llena | `drones_celular` y `run_vivo` escriben `cola_sync` |
+| 4 | Quién crea `alertas` | El simulador | Ya es así en esta guía |
+| 5 | Valores de `alertas.accion` | Tabla por tipo, en `config/default.yaml` | Solo `apagar_48h` vuelve al simulador |
+| 6 | Modo sin red en la demo | Interruptor *Sin red* + botón *Pasa el celular* | `run_vivo` escribe `cola_sync` también |
+| 7 | Formato de `cola_sync` | `tipo ∈ {lectura, inspeccion, seguimiento}`; `payload` = JSON con las columnas de la tabla destino | Serializar así |
+| 9 | Dashboard lee directo | Sí, con `hub/db.py` en solo lectura | WAL obligatorio |
+| — | Índices | Pide `lecturas(corrida_id, cama_id, hora)`, `riesgo(corrida_id, dia)`, `alertas(corrida_id, hora)` | Cambio al contrato, acordado |
+
+**Otros huecos:** las banderas `run_temporada --dias` y `run_vivo --velocidad` aparecen en el plan pero no en la lista de comandos de `CLAUDE.md`: son obligatorias.
 
 ---
 
